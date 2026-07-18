@@ -1,0 +1,112 @@
+id: 15
+name: grpc-vs-rest-bench
+program:
+  id: <ai-evaluation-retrieval|applied-computer-vision|backend-reliability-platform|mlops-data-platform|delivery-observability-infra>
+  narrative_fit: <how this repo strengthens the program story>
+  shared_assets:
+    - <program-level reusable asset>
+status: scaffold
+claim: comparacao REST vs gRPC
+stack: []
+language_profile:
+  primary: <python|java|go|typescript|angular|nextjs|terraform|spring-kotlin-backend|fastapi-backend|go-backend|node-typescript-backend>
+  secondary: []
+  reason: <why this profile governs the repo>
+decision_brain:
+  agentic_spec:
+    source: .portfolio/decision-brain/agentic-spec-governance.yaml
+    spec_store: portfolio-reuse-kit
+    schema: portfolio-system
+    project_config: openspec/config.yaml
+    component_pack: <default-portfolio-project|ai-evaluation-retrieval|applied-computer-vision|backend-reliability-platform|mlops-data-platform|delivery-observability-infra>
+    artifact_graph:
+      - intent->portfolio-impact->architecture-record
+      - architecture-record+portfolio-impact->component-pack
+      - component-pack->reuse-delta->benchmark-proof->tasks->verification
+  agent_graph:
+    mode: principal-agent-orchestrated
+    source: .portfolio/decision-brain/agent-graph.yaml
+    handoff: sdd/agent-handoff.md
+    local_first_runtime: docker+kumo-when-cloud-behavior-is-needed
+  reuse_improvement_loop:
+    source: .portfolio/decision-brain/reuse-improvement-loop.yaml
+    review_path: sdd/reuse-improvement-review.md
+    current_status: pending
+  principles:
+    coupling_rule: <domain/use cases do not depend on framework, database, broker, cloud SDK, transport, or UI>
+    solid: [srp, ocp, lsp, isp, dip]
+    simplicity_rule: <KISS/YAGNI rule for this repo>
+    testability_rule: <how use cases run without transport/infrastructure>
+    rejected_overengineering:
+      - <pattern/tool/abstraction rejected>
+  stack_profile: <spring-kotlin-backend|fastapi-backend|go-backend|node-typescript-backend|angular|nextjs|python-ml|terraform>
+  api_style: <rest-http|graphql|grpc|websocket|sse|cli>
+  messaging: <none|outbox-only|rabbitmq|kafka|redis-streams|nats>
+  cloud:
+    mode: <none|kumo-local-first|adapter-fake|real-cloud-required>
+    local_provider: kumo
+    real_provider_target: <aws|none|other>
+    emulated_services: []
+    adapter_rule: <ports/adapters keep cloud SDK outside domain/use cases>
+    config_switch: CLOUD_PROVIDER=kumo|aws
+    unsupported_behaviors: []
+  database: <postgresql|sqlite|redis|qdrant|duckdb|none|other>
+  runtime: <runtime decision>
+  library_policy: <why selected libs fit the problem and benchmark>
+  record_path: sdd/technical-decision.md
+  rejected_options:
+    - option: <alternative stack/broker/api/cloud/library>
+      reason: <why it was not chosen>
+architecture:
+  style: <mvc|layered|modular-monolith|clean-architecture|hexagonal|cqrs-event-sourcing|event-driven|mvvm|pipeline|serverless|microservices>
+  reason: <why this problem and benchmark fit this architecture>
+  problem_forces:
+    domain_complexity: <low|medium|high>
+    integration_pressure: <low|medium|high>
+    ui_state_complexity: <none|low|medium|high>
+    data_or_ml_reproducibility: <low|medium|high>
+    auditability: <low|medium|high>
+    throughput_or_async: <low|medium|high>
+    independent_deployability: <low|medium|high>
+  dependency_rule: <dependency direction rule>
+  boundaries:
+    - <module/layer/context boundary>
+  rejected_alternatives:
+    - style: <alternative>
+      reason: <why it was not chosen>
+design_system:
+  tokens: design-system/tokens.yaml
+  readme_components:
+    - readme_header
+    - benchmark_card
+    - architecture_card
+    - references_table
+  diagram_required: true
+reuse:
+  kit_version: local
+  uses:
+    - catalog
+    - programs
+    - proficiency-map
+    - component-packs
+    - openspec-schema
+    - decision-brain
+    - agent-graph
+    - reuse-improvement-loop
+    - architecture
+    - language-profiles
+    - design-system
+    - sdd
+    - harness
+    - templates
+    - skills
+benchmark:
+  primary_metric: latency_ms_by_protocol
+  unit: unit
+  command: pending
+  result_path: benchmarks/results/*.json
+release:
+  docker: pending
+  no_secret_default_path: true
+  readme_has_number: true
+  references_documented: true
