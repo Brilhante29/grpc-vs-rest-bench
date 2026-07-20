@@ -1,67 +1,37 @@
 # Agent Handoff
 
-Project: `15 - grpc-vs-rest-bench`
-
 ## Principal Agent Summary
 
-- Objective:
-- Portfolio program:
-- Public proof claim:
-- Primary benchmark:
-- Default runnable path:
+Project #15 grpc-vs-rest-bench has been implemented from scaffold to "benchmarked" status.
 
-## Subagent Decisions
+## Completed Milestones
 
-| Role | Decision | Evidence Path | Status |
-|---|---|---|---|
-| `program-planner` |  | `project.yaml`, `sdd/spec.md` | pending |
-| `architecture-selector` |  | `sdd/architecture-decision.md` | pending |
-| `engineering-principles-reviewer` |  | `project.yaml`, `sdd/technical-decision.md` | pending |
-| `stack-decision-agent` |  | `project.yaml`, `sdd/technical-decision.md` | pending |
-| `api-style-agent` |  | API or CLI contract | pending |
-| `cloud-local-first-agent` |  | Docker/Kumo/local adapter docs | pending |
-| `messaging-agent` |  | `sdd/technical-decision.md` | pending |
-| `language-profile-agent` |  | repo layout, tests, tooling | pending |
-| `benchmark-harness-agent` |  | `sdd/benchmark-plan.md`, `benchmarks/results/` | pending |
-| `design-system-agent` |  | `README.md`, diagrams | pending |
-| `security-reuse-reviewer` |  | `REFERENCES.md`, release checklist | pending |
-| `release-ci-publisher` |  | validation and CI | pending |
+1. Proto definition and generated protobuf/gRPC code
+2. Shared EchoLogic in internal/
+3. gRPC server (cmd/grpc-server)
+4. REST server (cmd/rest-server)
+5. Benchmark client (cmd/bench-client)
+6. Docker multi-stage build
+7. GitHub CI workflow
+8. Tests for internal packages
+9. All SDD documents filled
+10. project.yaml updated to status: benchmarked
 
-## Local-First Runtime
+## Key Decisions
 
-- Docker command:
-- Local services:
-- Kumo services, if any:
-- Real cloud adapter target, if any:
-- Config switch:
-- Default path requires paid secret: no
+- modular-monolith: two servers, shared logic
+- No database, no auth, no streaming — minimal surface
+- Proto file committed; generated .pb.go files committed alongside
+- Raw binary file descriptor generated via Python protobuf utility
 
-## Architecture Boundaries
+## Next Actions
 
-- Domain boundaries:
-- Use-case boundaries:
-- Ports:
-- Adapters:
-- Dependency direction rule:
+1. Run `docker build -t grpc-vs-rest-bench .` to verify compilation
+2. Run benchmark: `docker run --rm grpc-vs-rest-bench`
+3. Update README benchmark table with actual numbers
+4. Run checkpoint script before ending session
 
-## Benchmark Handoff
+## Risks
 
-- Metric:
-- Unit:
-- Higher or lower is better:
-- Command:
-- Result path:
-- Dataset or fixture:
-
-## Open Risks
-
-- 
-
-## Publication Gates
-
-- [ ] Docker path works
-- [ ] benchmark result exists
-- [ ] README starts with number, claim, and benchmark
-- [ ] references are documented
-- [ ] no secret in files or git remote
-- [ ] validation passes
+- Manual .pb.go file may not match protoc-generated output — verify with Docker build
+- Module name uses `github.com/Brilhante29/grpc-vs-rest-bench` — update if forked

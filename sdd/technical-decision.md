@@ -2,119 +2,105 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Decision Type
 
-`<stack|api-style|cloud|messaging|database|library|runtime|framework>`
+stack, api-style, library
 
 ## Context
 
-Project: `<project-name>`
-Problem: `<problem to solve>`
-Portfolio program: `<program>`
-Public signal: `<GitHub/LinkedIn proficiency signal>`
-Benchmark: `<metric>`
+Project: grpc-vs-rest-bench
+Problem: Compare latency of REST (HTTP/JSON) vs gRPC (HTTP/2 + Protobuf) for identical request/response workloads
+Portfolio program: backend-reliability-platform
+Public signal: Demonstrates Go gRPC/REST implementation and benchmark methodology
+Benchmark: latency_ms_by_protocol
 
 ## Selected Option
 
-Selected: `<option>`
+Selected: Go + chi/grpc dual-server modular monolith
 
 Reason:
 
-`<Why this option fits the problem, benchmark, and public signal.>`
+Go compiles to static binaries, has native gRPC support via google.golang.org/grpc, and chi provides minimal-overhead HTTP routing. The dual-server pattern uses the same EchoLogic for both transports, isolating the protocol as the only variable.
 
 ## Decision Brain Fields
 
-- Stack profile: `<spring-kotlin-backend|fastapi-backend|go-backend|node-typescript-backend|angular|nextjs|python-ml|terraform>`
-- API style: `<rest-http|graphql|grpc|websocket|sse|cli>`
-- Messaging: `<none|outbox-only|rabbitmq|kafka|redis-streams|nats>`
-- Cloud mode: `<none|kumo-local-first|adapter-fake|real-cloud-required>`
-- Database/runtime: `<selection>`
-- Library policy: `<selection>`
+- Stack profile: go-backend
+- API style: rest-http+grpc
+- Messaging: none
+- Cloud mode: none
+- Database/runtime: none / docker-container
+- Library policy: Minimal deps — chi for REST routing, grpc+protobuf for gRPC, stdlib for everything else
 
 ## Engineering Principles
 
 Coupling boundary:
 
-`<Domain/use cases must not depend on framework, DB, broker, cloud SDK, transport, or UI.>`
+Domain/use cases must not depend on framework, DB, broker, cloud SDK, transport, or UI. EchoLogic is a pure Go struct with no imports from grpc, chi, or net/http.
 
 SOLID application:
 
-- SRP: `<how responsibilities are split>`
-- OCP: `<how behavior extends without rewriting stable policy>`
-- LSP: `<how adapters/fakes/reals stay substitutable>`
-- ISP: `<small ports/interfaces used>`
-- DIP: `<high-level policy depends on abstractions>`
+- SRP: cmd/ owns transport; internal/ owns domain; benchmark/ owns measurement
+- OCP: Add a new transport by writing a new cmd/ binary; internal/ stays unchanged
+- LSP: EchoLogic returns *pb.EchoResponse regardless of transport
+- ISP: EchoLogic.Echo takes a single request type and returns a single response type
+- DIP: cmd/ depends on internal/; no reverse dependency
 
 Simplicity:
 
-- KISS: `<simplest design that proves the claim>`
-- YAGNI: `<future abstraction intentionally not added>`
-- DRY: `<duplicated business knowledge removed without premature abstraction>`
+- KISS: One Echo RPC. No streaming, no auth, no DB.
+- YAGNI: No middleware, no interceptors beyond what grpc/chi require, no circuit breakers.
+- DRY: EchoLogic is the single source of truth for echo behavior.
 
 Testability evidence:
 
-- `<use case test without transport/infrastructure>`
-- `<adapter or contract test>`
+- EchoLogic tested without gRPC or HTTP transport (internal/service_test.go)
+- Report tested without running servers (internal/benchmark/report_test.go)
+
 ## Rejected Options
 
 | Option | Why rejected |
 |---|---|
-| `<option>` | `<reason>` |
-| `<option>` | `<reason>` |
+| Python/FastAPI | Higher runtime overhead would confound benchmark results |
+| Java/Spring | JVM warmup adds non-determinism to latency measurement |
+| Rust | Excessive build complexity for a simple Echo benchmark |
 
 ## API Contract
 
-Contract artifact:
+Contract artifact: protobuf (proto/benchmark/v1/service.proto)
 
-`<OpenAPI|GraphQL schema|protobuf|event contract|CLI output schema|none>`
-
-GraphQL controls, when applicable:
-
-- Query complexity/depth limit: `<yes|no|not applicable>`
-- N+1 prevention: `<DataLoader/batching plan|not applicable>`
-- Field-level auth rule: `<yes|no|not applicable>`
+GraphQL controls, when applicable: N/A
 
 ## Cloud Local-First
 
-Local provider:
+Local provider: none
 
-`<kumo|none|adapter fake>`
+Real provider target: none
 
-Real provider target:
+Config switch: N/A — no cloud dependencies
 
-`<aws|none|other>`
-
-Config switch:
-
-```txt
-CLOUD_PROVIDER=<kumo|aws|none>
-CLOUD_ENDPOINT=http://localhost:4566
-```
-
-Unsupported local behaviors:
-
-- `<behavior or none>`
+Unsupported local behaviors: N/A
 
 ## Benchmark Impact
 
 Expected impact:
 
-- `<metric/result this decision should improve or clarify>`
+- gRPC should show 2-5x lower latency than REST for the same payload due to binary serialization and HTTP/2 multiplexing
+- The speedup factor is the primary result
 
 Validation command:
 
-```powershell
-<command>
+```bash
+docker build -t grpc-vs-rest-bench . && docker run --rm grpc-vs-rest-bench
 ```
 
 ## Operational Cost
 
-- Docker services added: `<none|kumo|postgres|redis|rabbitmq|redpanda|...>`
-- Local demo complexity: `<low|medium|high>`
-- Failure case required: `<yes|no>`
+- Docker services added: none (single image)
+- Local demo complexity: low (one docker command)
+- Failure case required: no
 
 ## Follow-up
 
-- `<what must be revisited if benchmark fails>`
+If gRPC is not faster, investigate: protobuf serialization overhead, HTTP connection pooling, or Go net/http vs grpc internals.

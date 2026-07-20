@@ -1,24 +1,30 @@
 id: 15
 name: grpc-vs-rest-bench
 program:
-  id: <ai-evaluation-retrieval|applied-computer-vision|backend-reliability-platform|mlops-data-platform|delivery-observability-infra>
-  narrative_fit: <how this repo strengthens the program story>
+  id: backend-reliability-platform
+  narrative_fit: Benchmarks transport protocol overhead (gRPC vs REST) to inform backend service communication decisions
   shared_assets:
-    - <program-level reusable asset>
-status: scaffold
+    - benchmark-report-schema
+    - docker-multistage-go-template
+status: benchmarked
 claim: comparacao REST vs gRPC
-stack: []
+stack:
+  - go
+  - grpc
+  - chi
+  - protobuf
+  - docker
 language_profile:
-  primary: <python|java|go|typescript|angular|nextjs|terraform|spring-kotlin-backend|fastapi-backend|go-backend|node-typescript-backend>
+  primary: go-backend
   secondary: []
-  reason: <why this profile governs the repo>
+  reason: Go provides native gRPC support, minimal runtime overhead for benchmarking, and single-binary Docker deployment
 decision_brain:
   agentic_spec:
     source: .portfolio/decision-brain/agentic-spec-governance.yaml
     spec_store: portfolio-reuse-kit
     schema: portfolio-system
     project_config: openspec/config.yaml
-    component_pack: <default-portfolio-project|ai-evaluation-retrieval|applied-computer-vision|backend-reliability-platform|mlops-data-platform|delivery-observability-infra>
+    component_pack: backend-reliability-platform
     artifact_graph:
       - intent->portfolio-impact->architecture-record
       - architecture-record+portfolio-impact->component-pack
@@ -31,49 +37,58 @@ decision_brain:
   reuse_improvement_loop:
     source: .portfolio/decision-brain/reuse-improvement-loop.yaml
     review_path: sdd/reuse-improvement-review.md
-    current_status: pending
+    current_status: complete
   principles:
-    coupling_rule: <domain/use cases do not depend on framework, database, broker, cloud SDK, transport, or UI>
+    coupling_rule: domain/use cases do not depend on framework, database, broker, cloud SDK, transport, or UI
     solid: [srp, ocp, lsp, isp, dip]
-    simplicity_rule: <KISS/YAGNI rule for this repo>
-    testability_rule: <how use cases run without transport/infrastructure>
+    simplicity_rule: Single Echo RPC; no DB, no auth, no streaming — minimal surface for transport comparison
+    testability_rule: EchoLogic is pure Go struct, testable without gRPC/HTTP transport
     rejected_overengineering:
-      - <pattern/tool/abstraction rejected>
-  stack_profile: <spring-kotlin-backend|fastapi-backend|go-backend|node-typescript-backend|angular|nextjs|python-ml|terraform>
-  api_style: <rest-http|graphql|grpc|websocket|sse|cli>
-  messaging: <none|outbox-only|rabbitmq|kafka|redis-streams|nats>
+      - streaming RPCs
+      - authentication middleware
+      - database persistence
+      - structured logging library
+  stack_profile: go-backend
+  api_style: rest-http+grpc
+  messaging: none
   cloud:
-    mode: <none|kumo-local-first|adapter-fake|real-cloud-required>
+    mode: none
     local_provider: kumo
-    real_provider_target: <aws|none|other>
+    real_provider_target: none
     emulated_services: []
-    adapter_rule: <ports/adapters keep cloud SDK outside domain/use cases>
-    config_switch: CLOUD_PROVIDER=kumo|aws
+    adapter_rule: ports/adapters keep cloud SDK outside domain/use cases
+    config_switch: CLOUD_PROVIDER=none
     unsupported_behaviors: []
-  database: <postgresql|sqlite|redis|qdrant|duckdb|none|other>
-  runtime: <runtime decision>
-  library_policy: <why selected libs fit the problem and benchmark>
+  database: none
+  runtime: docker-container
+  library_policy: Minimal deps — chi for REST routing, grpc+protobuf for gRPC, stdlib for everything else
   record_path: sdd/technical-decision.md
   rejected_options:
-    - option: <alternative stack/broker/api/cloud/library>
-      reason: <why it was not chosen>
+    - option: fiber (REST framework)
+      reason: chi is more idiomatic Go; fiber adds unnecessary abstraction for a benchmark
+    - option: connect-go
+      reason: gRPC-native protobuf serialization is the benchmark subject; connect-go adds HTTP framing
 architecture:
-  style: <mvc|layered|modular-monolith|clean-architecture|hexagonal|cqrs-event-sourcing|event-driven|mvvm|pipeline|serverless|microservices>
-  reason: <why this problem and benchmark fit this architecture>
+  style: modular-monolith
+  reason: Two servers (REST + gRPC) sharing identical EchoLogic; no reason to split into services
   problem_forces:
-    domain_complexity: <low|medium|high>
-    integration_pressure: <low|medium|high>
-    ui_state_complexity: <none|low|medium|high>
-    data_or_ml_reproducibility: <low|medium|high>
-    auditability: <low|medium|high>
-    throughput_or_async: <low|medium|high>
-    independent_deployability: <low|medium|high>
-  dependency_rule: <dependency direction rule>
+    domain_complexity: low
+    integration_pressure: low
+    ui_state_complexity: none
+    data_or_ml_reproducibility: low
+    auditability: low
+    throughput_or_async: medium
+    independent_deployability: low
+  dependency_rule: cmd/ depends on internal/ but internal/ must not import cmd/
   boundaries:
-    - <module/layer/context boundary>
+    - cmd/grpc-server: gRPC transport adapter
+    - cmd/rest-server: REST/HTTP transport adapter
+    - cmd/bench-client: benchmark harness entrypoint
+    - internal/: shared domain logic
+    - internal/benchmark/: benchmark suite + report
   rejected_alternatives:
-    - style: <alternative>
-      reason: <why it was not chosen>
+    - style: microservices
+      reason: Two-server architecture is already modular; microservices add orchestration overhead without benchmark benefit
 design_system:
   tokens: design-system/tokens.yaml
   readme_components:
@@ -102,11 +117,11 @@ reuse:
     - skills
 benchmark:
   primary_metric: latency_ms_by_protocol
-  unit: unit
-  command: pending
+  unit: milliseconds
+  command: docker run --rm grpc-vs-rest-bench
   result_path: benchmarks/results/*.json
 release:
-  docker: pending
+  docker: implemented
   no_secret_default_path: true
   readme_has_number: true
   references_documented: true

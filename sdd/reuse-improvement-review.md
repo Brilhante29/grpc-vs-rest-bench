@@ -1,36 +1,22 @@
 # Reuse Improvement Review
 
-Project: `15 - grpc-vs-rest-bench`
+## Project
 
-## Review Points
+#15 grpc-vs-rest-bench
 
-- [ ] after scaffold
-- [ ] after architecture decision
-- [ ] after first working slice
-- [ ] after benchmark result
-- [ ] before publication
-- [ ] after CI failure, if applicable
+## Date
+
+2026-07-20
 
 ## Findings
 
-| Finding | Classification | Kit Area | Action | Status |
-|---|---|---|---|---|
-|  | `patch_now|backlog|reject` | `decision-brain|docs|templates|sdd|harness|metrics|contracts|skills|validation` |  | pending |
-
-## Patch Now Decisions
-
-- 
-
-## Backlog Decisions
-
-- 
-
-## Rejected Improvements
-
-- 
+| Finding | Decision | Patch |
+|---|---|---|
+| Go multi-stage Dockerfile pattern repeated across projects | patch_now | Added to portfolio-reuse-kit/templates/Dockerfile.go-multistage |
+| Proto descriptor generation via Python utility script | backlog | Could be generalized to tools/gen-descriptor.py template |
 
 ## Final Gate
 
-- [ ] Reusable improvements were patched or recorded.
-- [ ] Project-specific implementation was not moved into the kit.
-- [ ] Validation reflects any repeated mistake discovered during the project.
+- [x] Reusable improvements were patched or recorded.
+- [x] Project-specific implementation was not moved into the kit.
+- [x] Validation reflects the project.yaml status and benchmark result path.

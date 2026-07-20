@@ -1,0 +1,52 @@
+{
+  "project": "grpc-vs-rest-bench",
+  "claim": "comparacao REST vs gRPC",
+  "primary_metric": "latency_ms_by_protocol",
+  "unit": "milliseconds",
+  "timestamp": "2026-07-20T20:30:06Z",
+  "environment": {
+    "os": "linux",
+    "arch": "amd64",
+    "go_version": "go1.23.12",
+    "num_cpu": 6,
+    "hostname": "8b1f6c1364cb"
+  },
+  "command": "./bench-client -n 1000 -payload 256 -c 10",
+  "results": [
+    {
+      "protocol": "REST",
+      "requests": 1000,
+      "payload_bytes": 256,
+      "total_time_ns": 50970669,
+      "mean_latency_ns": 478370,
+      "p50_latency_ns": 420827,
+      "p95_latency_ns": 986614,
+      "p99_latency_ns": 1893056,
+      "min_latency_ns": 63518,
+      "max_latency_ns": 2660289,
+      "throughput_req_per_sec": 19619.13
+    },
+    {
+      "protocol": "gRPC",
+      "requests": 1000,
+      "payload_bytes": 256,
+      "total_time_ns": 68795126,
+      "mean_latency_ns": 667306,
+      "p50_latency_ns": 603809,
+      "p95_latency_ns": 1176838,
+      "p99_latency_ns": 2127572,
+      "min_latency_ns": 230268,
+      "max_latency_ns": 3340406,
+      "throughput_req_per_sec": 14535.91
+    }
+  ],
+  "comparison": {
+    "rest_mean_ms": 0.478,
+    "grpc_mean_ms": 0.667,
+    "speedup_factor": 0.717,
+    "rest_p99_ms": 1.893,
+    "grpc_p99_ms": 2.128,
+    "rest_throughput": 19619.13,
+    "grpc_throughput": 14535.91
+  }
+}
