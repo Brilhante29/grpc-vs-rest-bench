@@ -6,7 +6,7 @@ program:
   shared_assets:
     - benchmark-report-schema
     - docker-multistage-go-template
-status: published
+status: implemented
 claim: comparacao REST vs gRPC
 stack:
   - go
