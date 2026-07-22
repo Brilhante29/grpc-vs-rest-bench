@@ -119,7 +119,7 @@ benchmark:
   primary_metric: latency_ms_by_protocol
   unit: milliseconds
   command: docker run --rm grpc-vs-rest-bench
-  result_path: benchmarks/results/*.json
+  result_path: benchmarks/results/benchmark-result.json
 release:
   docker: implemented
   no_secret_default_path: true
