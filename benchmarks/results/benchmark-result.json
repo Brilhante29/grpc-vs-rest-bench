@@ -1,5 +1,7 @@
 {
   "project": "grpc-vs-rest-bench",
+  "metric": "latency_ms_by_protocol",
+  "value": 0.478,
   "claim": "comparacao REST vs gRPC",
   "primary_metric": "latency_ms_by_protocol",
   "unit": "milliseconds",
