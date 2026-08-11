@@ -1,120 +1,82 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/Brilhante29/grpc-vs-rest-bench/internal"
 	"github.com/Brilhante29/grpc-vs-rest-bench/internal/benchmark"
-	pb "github.com/Brilhante29/grpc-vs-rest-bench/internal/proto/benchmark/v1"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
-	requests := flag.Int("n", 1000, "number of requests per protocol")
-	payloadBytes := flag.Int("payload", 256, "payload size in bytes")
-	concurrency := flag.Int("c", 10, "concurrency level")
+	requests := flag.Int("n", 1000, "requests per repetition and protocol")
+	payloadBytes := flag.Int("payload", 256, "logical UTF-8 payload size in bytes")
+	concurrency := flag.Int("c", 10, "concurrent clients")
+	repetitions := flag.Int("repetitions", 3, "measured repetitions")
+	warmup := flag.Int("warmup", 100, "warmup requests per protocol")
 	restAddr := flag.String("rest", "localhost:8080", "REST server address")
 	grpcAddr := flag.String("grpc", "localhost:50051", "gRPC server address")
-	resultsDir := flag.String("out", "benchmarks/results", "output directory for results")
+	resultsDir := flag.String("out", "benchmarks/results", "result directory")
+	validatePath := flag.String("validate", "", "validate an existing V2 report and exit")
 	flag.Parse()
 
-	suite := benchmark.NewSuite()
-	report := benchmark.NewReport(fmt.Sprintf("./bench-client -n %d -payload %d -c %d", *requests, *payloadBytes, *concurrency))
-
-	log.Printf("Running benchmark: %d requests, %dB payload, %d concurrency", *requests, *payloadBytes, *concurrency)
-
-	restResult, err := suite.Run("REST", *requests, *payloadBytes, *concurrency, func(ctx context.Context) (time.Duration, error) {
-		return doREST(ctx, *restAddr, *payloadBytes)
-	})
-	if err != nil {
-		log.Fatalf("REST benchmark failed: %v", err)
+	if *validatePath != "" {
+		validate(*validatePath)
+		return
 	}
-	log.Printf("REST: mean=%v p50=%v p95=%v p99=%v throughput=%.0f/s",
-		restResult.MeanLatency, restResult.P50Latency, restResult.P95Latency, restResult.P99Latency, restResult.Throughput)
-	report.AddResult(restResult)
 
-	grpcResult, err := suite.Run("gRPC", *requests, *payloadBytes, *concurrency, func(ctx context.Context) (time.Duration, error) {
-		return doGRPC(ctx, *grpcAddr, *payloadBytes)
-	})
-	if err != nil {
-		log.Fatalf("gRPC benchmark failed: %v", err)
+	cfg := benchmark.Config{Requests: *requests, WarmupRequests: *warmup, Repetitions: *repetitions,
+		Concurrency: *concurrency, PayloadBytes: *payloadBytes, RequestTimeout: 10 * time.Second}
+	if err := cfg.Validate(); err != nil {
+		log.Fatal(err)
 	}
-	log.Printf("gRPC: mean=%v p50=%v p95=%v p99=%v throughput=%.0f/s",
-		grpcResult.MeanLatency, grpcResult.P50Latency, grpcResult.P95Latency, grpcResult.P99Latency, grpcResult.Throughput)
-	report.AddResult(grpcResult)
+	payload := strings.Repeat("A", cfg.PayloadBytes)
+	restClient := internal.NewRESTClient(*restAddr, cfg.Concurrency, cfg.RequestTimeout)
+	grpcClient, err := internal.NewGRPCClient(*grpcAddr, cfg.RequestTimeout)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer grpcClient.Close()
 
+	command := fmt.Sprintf("bench-client -n %d -payload %d -c %d -warmup %d -repetitions %d",
+		cfg.Requests, cfg.PayloadBytes, cfg.Concurrency, cfg.WarmupRequests, cfg.Repetitions)
+	log.Printf("V2 benchmark: %d requests x %d repetitions, %dB payload, concurrency %d", cfg.Requests, cfg.Repetitions, cfg.PayloadBytes, cfg.Concurrency)
+	results, err := benchmark.RunPair(context.Background(), cfg, payload, restClient, grpcClient)
+	if err != nil {
+		log.Fatal(err)
+	}
+	report := benchmark.NewReport(cfg, payload, command, results)
 	if err := report.Save(*resultsDir); err != nil {
-		log.Fatalf("failed to save report: %v", err)
+		log.Fatal(err)
 	}
-	fmt.Println()
-	report.Print()
-
-	fmt.Printf("\nSpeedup (REST mean / gRPC mean): %.2fx\n",
-		float64(restResult.MeanLatency)/float64(grpcResult.MeanLatency))
-}
-
-var httpClient = &http.Client{
-	Transport: &http.Transport{
-		MaxIdleConns:        100,
-		MaxIdleConnsPerHost: 100,
-		IdleConnTimeout:     90 * time.Second,
-	},
-	Timeout: 30 * time.Second,
-}
-
-func doREST(ctx context.Context, addr string, payloadBytes int) (time.Duration, error) {
-	body := map[string]interface{}{
-		"message":       "benchmark",
-		"payload_bytes": payloadBytes,
-	}
-	data, _ := json.Marshal(body)
-	start := time.Now()
-	req, err := http.NewRequestWithContext(ctx, "POST", fmt.Sprintf("http://%s/api/v1/echo", addr), bytes.NewReader(data))
-	if err != nil {
-		return 0, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return 0, err
-	}
-	defer resp.Body.Close()
-	io.Copy(io.Discard, resp.Body)
-	return time.Since(start), nil
-}
-
-var grpcConn *grpc.ClientConn
-var grpcClient pb.BenchmarkServiceClient
-
-func doGRPC(ctx context.Context, addr string, payloadBytes int) (time.Duration, error) {
-	if grpcConn == nil {
-		conn, err := grpc.Dial(addr,
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-		)
-		if err != nil {
-			return 0, fmt.Errorf("grpc dial: %w", err)
+	data, _ := json.MarshalIndent(report, "", "  ")
+	fmt.Println(string(data))
+	for _, result := range results {
+		if result.Aggregate.Failures > 0 {
+			log.Fatalf("%s recorded %d failures", result.Protocol, result.Aggregate.Failures)
 		}
-		grpcConn = conn
-		grpcClient = pb.NewBenchmarkServiceClient(conn)
 	}
-	start := time.Now()
-	_, err := grpcClient.Echo(ctx, &pb.EchoRequest{
-		Message:      "benchmark",
-		PayloadBytes: int32(payloadBytes),
-	})
+}
+
+func validate(path string) {
+	report, err := benchmark.Load(path)
 	if err != nil {
-		return 0, err
+		log.Fatal(err)
 	}
-	return time.Since(start), nil
+	issues := benchmark.Validate(report, true)
+	if len(issues) > 0 {
+		for _, issue := range issues {
+			fmt.Fprintln(os.Stderr, "-", issue)
+		}
+		os.Exit(1)
+	}
+	fmt.Println("benchmark-report/v2 validation passed")
 }
 
 func init() {

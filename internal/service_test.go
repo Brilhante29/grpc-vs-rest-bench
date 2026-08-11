@@ -1,36 +1,34 @@
 package internal
 
 import (
+	"context"
+	"crypto/sha256"
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
-
-	pb "github.com/Brilhante29/grpc-vs-rest-bench/internal/proto/benchmark/v1"
 )
 
 func TestEchoLogic(t *testing.T) {
 	l := NewEchoLogic()
-	resp := l.Echo(&pb.EchoRequest{Message: "test", PayloadBytes: 4})
-	if resp.Message != "testAAAA" {
-		t.Fatalf("unexpected message: %q", resp.Message)
+	payload := strings.Repeat("A", 256)
+	resp, err := l.Echo(context.Background(), EchoRequest{RequestID: "request-1", Payload: payload})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if resp.ServerTimestamp == 0 {
-		t.Fatal("expected non-zero timestamp")
+	if resp.RequestID != "request-1" || resp.Payload != payload {
+		t.Fatalf("unexpected response: %#v", resp)
 	}
-}
-
-func TestEchoLogicPadding(t *testing.T) {
-	l := NewEchoLogic()
-	resp := l.Echo(&pb.EchoRequest{Message: "ping", PayloadBytes: 256})
-	expected := "ping" + strings.Repeat("A", 256)
-	if resp.Message != expected {
-		t.Fatalf("expected message length %d, got %d", len(expected), len(resp.Message))
+	digest := sha256.Sum256([]byte(payload))
+	if resp.PayloadSHA256 != fmt.Sprintf("%x", digest) {
+		t.Fatalf("unexpected payload digest: %s", resp.PayloadSHA256)
 	}
 }
 
-func TestEchoLogicEmpty(t *testing.T) {
+func TestEchoLogicRequiresRequestID(t *testing.T) {
 	l := NewEchoLogic()
-	resp := l.Echo(&pb.EchoRequest{Message: "", PayloadBytes: 0})
-	if resp.Message != "" {
-		t.Fatalf("expected empty, got %q", resp.Message)
+	_, err := l.Echo(context.Background(), EchoRequest{Payload: "payload"})
+	if !errors.Is(err, ErrRequestIDRequired) {
+		t.Fatalf("expected ErrRequestIDRequired, got %v", err)
 	}
 }

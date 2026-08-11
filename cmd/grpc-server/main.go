@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net"
@@ -13,15 +12,6 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-type grpcServer struct {
-	pb.UnimplementedBenchmarkServiceServer
-	logic *internal.EchoLogic
-}
-
-func (s *grpcServer) Echo(ctx context.Context, req *pb.EchoRequest) (*pb.EchoResponse, error) {
-	return s.logic.Echo(req), nil
-}
-
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -32,7 +22,7 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	s := grpc.NewServer()
-	pb.RegisterBenchmarkServiceServer(s, &grpcServer{logic: internal.NewEchoLogic()})
+	pb.RegisterBenchmarkServiceServer(s, internal.NewGRPCServer(internal.NewEchoLogic()))
 	reflection.Register(s)
 	log.Printf("gRPC server listening on :%s", port)
 	if err := s.Serve(lis); err != nil {

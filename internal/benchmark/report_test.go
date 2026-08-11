@@ -1,70 +1,62 @@
 package benchmark
 
 import (
-	"encoding/json"
+	"context"
 	"os"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/Brilhante29/grpc-vs-rest-bench/internal"
 )
 
-func TestReportAddResult(t *testing.T) {
-	r := NewReport("test-command")
-	r.AddResult(ProtocolResult{
-		Protocol: "REST", Requests: 100, PayloadSize: 256,
-		MeanLatency: 5 * time.Millisecond, P50Latency: 4 * time.Millisecond,
-		P95Latency: 10 * time.Millisecond, P99Latency: 15 * time.Millisecond,
-		MinLatency: 1 * time.Millisecond, MaxLatency: 20 * time.Millisecond,
-		Throughput: 1000,
-	})
-	r.AddResult(ProtocolResult{
-		Protocol: "gRPC", Requests: 100, PayloadSize: 256,
-		MeanLatency: 2 * time.Millisecond, P50Latency: 1 * time.Millisecond,
-		P95Latency: 5 * time.Millisecond, P99Latency: 8 * time.Millisecond,
-		MinLatency: 500 * time.Microsecond, MaxLatency: 10 * time.Millisecond,
-		Throughput: 2000,
-	})
-	if len(r.Results) != 2 {
-		t.Fatalf("expected 2 results, got %d", len(r.Results))
-	}
-	if r.Comparison == nil {
-		t.Fatal("expected comparison to be computed")
-	}
-	if r.Comparison["speedup_factor"] != 2.5 {
-		t.Fatalf("expected speedup 2.5, got %v", r.Comparison["speedup_factor"])
-	}
+type fakeClient struct{ failures atomic.Int64 }
+
+func (f *fakeClient) Echo(_ context.Context, request internal.EchoRequest) (internal.EchoResponse, error) {
+	response, err := internal.NewEchoLogic().Echo(context.Background(), request)
+	return response, err
 }
 
-func TestReportSave(t *testing.T) {
-	r := NewReport("go test")
-	r.AddResult(ProtocolResult{
-		Protocol: "REST", Requests: 10, PayloadSize: 100,
-		MeanLatency: time.Millisecond, P50Latency: time.Millisecond,
-		P95Latency: 2 * time.Millisecond, P99Latency: 3 * time.Millisecond,
-		MinLatency: 500 * time.Microsecond, MaxLatency: 5 * time.Millisecond,
-		Throughput: 500,
-	})
-	dir := t.TempDir()
-	if err := r.Save(dir); err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(dir + "/benchmark-result.json")
+func TestRunPairProducesThreeComparableRepetitions(t *testing.T) {
+	cfg := Config{Requests: 20, WarmupRequests: 2, Repetitions: 3, Concurrency: 4, PayloadBytes: 32, RequestTimeout: time.Second}
+	payload := strings.Repeat("A", cfg.PayloadBytes)
+	results, err := RunPair(context.Background(), cfg, payload, &fakeClient{}, &fakeClient{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	var loaded BenchmarkReport
-	if err := json.Unmarshal(data, &loaded); err != nil {
-		t.Fatal(err)
+	if len(results) != 2 {
+		t.Fatalf("expected two protocols, got %d", len(results))
 	}
-	if loaded.Project != "grpc-vs-rest-bench" {
-		t.Fatalf("expected project grpc-vs-rest-bench, got %s", loaded.Project)
+	for _, result := range results {
+		if len(result.Repetitions) != 3 || result.Aggregate.Attempts != 60 || result.Aggregate.Failures != 0 {
+			t.Fatalf("unexpected aggregate for %s: %#v", result.Protocol, result.Aggregate)
+		}
+		if result.Aggregate.P50MS > result.Aggregate.P95MS || result.Aggregate.P95MS > result.Aggregate.P99MS {
+			t.Fatalf("non-monotonic percentiles for %s", result.Protocol)
+		}
+	}
+	report := NewReport(cfg, payload, "test command", results)
+	if issues := Validate(report, false); len(issues) > 0 {
+		t.Fatalf("unexpected validation issues: %v", issues)
 	}
 }
 
-func TestReportPrint(t *testing.T) {
-	r := NewReport("print-test")
-	r.AddResult(ProtocolResult{
-		Protocol: "gRPC", Requests: 50, PayloadSize: 256,
-		MeanLatency: time.Millisecond,
-	})
-	r.Print()
+func TestReportRoundTrip(t *testing.T) {
+	cfg := Config{Requests: 1, WarmupRequests: 1, Repetitions: 3, Concurrency: 1, PayloadBytes: 1, RequestTimeout: time.Second}
+	report := NewReport(cfg, "A", "test", []ProtocolResult{{Protocol: "REST", Repetitions: make([]RepetitionResult, 3)}, {Protocol: "gRPC", Repetitions: make([]RepetitionResult, 3)}})
+	dir := t.TempDir()
+	if err := report.Save(dir); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := Load(dir + "/benchmark-result.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.ComparabilityKey != report.ComparabilityKey {
+		t.Fatal("comparability key changed after JSON round trip")
+	}
+	if _, err := os.Stat(dir + "/benchmark-result.json"); err != nil {
+		t.Fatal(err)
+	}
 }
