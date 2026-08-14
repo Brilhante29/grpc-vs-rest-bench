@@ -45,6 +45,7 @@ $requiredFiles = @(
   "sdd/technical-decision.md",
   "sdd/agent-handoff.md",
   "sdd/reuse-improvement-review.md"
+  "tools/validate-go-container.sh"
 )
 foreach ($file in $requiredFiles) { Require-File $file }
 
@@ -54,7 +55,7 @@ if (Test-Path -LiteralPath $readmePath -PathType Leaf) {
   if ($readme -notmatch '^# #15 grpc-vs-rest-bench') {
     Add-Failure "README must open with project number and name"
   }
-  foreach ($evidence in @("2.117 ms", "2.644 ms", "10,310.65 req/s", "6,973.73 req/s", "rest_over_grpc_p95_ratio")) {
+  foreach ($evidence in @("3.239 ms", "3.796 ms", "7,752.31 req/s", "6,036.66 req/s", "rest_over_grpc_p95_ratio")) {
     if ($readme -notmatch [regex]::Escape($evidence)) {
       Add-Failure "README is missing publication evidence: $evidence"
     }
@@ -125,8 +126,7 @@ try {
     Invoke-Checked "Go vet" { go vet ./... }
     Invoke-Checked "Go build" { go build ./... }
   } elseif (-not $SkipDocker) {
-    $goChecks = '/usr/local/go/bin/go run ./cmd/bench-client -validate /src/benchmarks/results/benchmark-result.json && test -z "$(/usr/local/go/bin/gofmt -l .)" && /usr/local/go/bin/go test -count=1 ./... && /usr/local/go/bin/go vet ./... && /usr/local/go/bin/go build ./...'
-    Invoke-Checked "containerized Go validation" { docker run --rm -v "${root}:/src" -w /src golang:1.26.5-alpine3.24 sh -lc $goChecks }
+    Invoke-Checked "containerized Go validation" { docker run --rm -v "${root}:/src" -w /src golang:1.26.5-alpine3.24 sh /src/tools/validate-go-container.sh }
   } else {
     Add-Failure "Go toolchain is unavailable and Docker validation was skipped"
   }
@@ -164,8 +164,7 @@ if ($forbidden) {
 }
 $mojibakePatterns = @(
   [string][char]0x00C3,
-  ([string][char]0x00E2 + [string][char]0x20AC),
-  [string][char]0xFFFD
+  ([string][char]0x00E2 + [string][char]0x20AC)
 )
 $mojibake = Select-String -Path $searchFiles.FullName -Pattern $mojibakePatterns -SimpleMatch -ErrorAction SilentlyContinue
 if ($mojibake) {

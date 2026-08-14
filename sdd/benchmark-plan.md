@@ -40,13 +40,13 @@ Each value is the median of three repetition-level samples. The raw samples and 
 
 ## Observed Baseline
 
-- REST p95: `2.116550 ms`
-- gRPC p95: `2.644427 ms`
-- REST throughput: `10,310.648 req/s`
-- gRPC throughput: `6,973.729 req/s`
+- REST p95: `3.238946 ms`
+- gRPC p95: `3.796319 ms`
+- REST throughput: `7,752.311 req/s`
+- gRPC throughput: `6,036.664 req/s`
 - failures: `0`
 
-REST won median p95 and throughput in this small unary workload; gRPC won median p99. The post should explain the workload and the mixed result instead of claiming a universal protocol winner.
+REST won median p50, p95, p99, and throughput in this small unary workload. One of three paired repetitions favored gRPC for p95 and throughput, so the post must explain variance and workload limits instead of claiming a universal winner.
 
 ## Result Contract
 

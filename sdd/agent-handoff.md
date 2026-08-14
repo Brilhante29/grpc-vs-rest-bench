@@ -2,7 +2,7 @@
 
 ## Current State
 
-Project #15 is implementation- and evidence-complete. The canonical V2 result was generated from clean source commit `4442f1be7961830dde793c980a3dad56f7841349` and must remain separate from CI smoke output.
+Project #15 is implementation- and evidence-complete. The canonical V2 result was generated from clean source commit `7e91e873967ab098e3a5dd04e9a71eed6ade8050` and must remain separate from CI smoke output.
 
 ## Verified Behavior
 

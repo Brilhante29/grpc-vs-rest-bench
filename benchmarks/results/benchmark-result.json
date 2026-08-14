@@ -1,54 +1,239 @@
 {
+  "schema_version": 2,
+  "run_id": "929806b7-cfa9-4449-835b-348ad3812adc",
   "project": "grpc-vs-rest-bench",
-  "metric": "latency_ms_by_protocol",
-  "value": 0.478,
-  "claim": "comparacao REST vs gRPC",
-  "primary_metric": "latency_ms_by_protocol",
-  "unit": "milliseconds",
-  "timestamp": "2026-07-20T20:30:06Z",
-  "environment": {
-    "os": "linux",
-    "arch": "amd64",
-    "go_version": "go1.23.12",
-    "num_cpu": 6,
-    "hostname": "8b1f6c1364cb"
+  "benchmark_id": "rest-grpc-unary-echo",
+  "workload": {
+    "version": "echo-echo.v1-n1000-p256",
+    "fixture_digest": "sha256:e075f2f51cad23d0537186cfcd50f911ea954f9c2e32a437f45327f1b7899bbb",
+    "config_digest": "sha256:ed746eed2f6aa5699b72fa46d58e3b159048b7a0c7b2bd21b869be2dc6c6cea7",
+    "warmup_iterations": 100,
+    "measured_iterations": 1000,
+    "concurrency": 10
   },
-  "command": "./bench-client -n 1000 -payload 256 -c 10",
-  "results": [
+  "metrics": [
     {
-      "protocol": "REST",
-      "requests": 1000,
-      "payload_bytes": 256,
-      "total_time_ns": 50970669,
-      "mean_latency_ns": 478370,
-      "p50_latency_ns": 420827,
-      "p95_latency_ns": 986614,
-      "p99_latency_ns": 1893056,
-      "min_latency_ns": 63518,
-      "max_latency_ns": 2660289,
-      "throughput_req_per_sec": 19619.13
+      "name": "rest_p50_latency_ms",
+      "value": 0.857653,
+      "unit": "milliseconds",
+      "direction": "lower_is_better",
+      "samples": [
+        0.857653,
+        0.961309,
+        0.734789
+      ],
+      "failures": 0,
+      "summary": {
+        "max": 0.961309,
+        "mean": 0.8512503333333333,
+        "median": 0.857653,
+        "min": 0.734789
+      }
     },
     {
-      "protocol": "gRPC",
-      "requests": 1000,
-      "payload_bytes": 256,
-      "total_time_ns": 68795126,
-      "mean_latency_ns": 667306,
-      "p50_latency_ns": 603809,
-      "p95_latency_ns": 1176838,
-      "p99_latency_ns": 2127572,
-      "min_latency_ns": 230268,
-      "max_latency_ns": 3340406,
-      "throughput_req_per_sec": 14535.91
+      "name": "rest_p95_latency_ms",
+      "value": 3.238946,
+      "unit": "milliseconds",
+      "direction": "lower_is_better",
+      "samples": [
+        2.732548,
+        3.353276,
+        3.238946
+      ],
+      "failures": 0,
+      "summary": {
+        "max": 3.353276,
+        "mean": 3.108256666666667,
+        "median": 3.238946,
+        "min": 2.732548
+      }
+    },
+    {
+      "name": "rest_p99_latency_ms",
+      "value": 5.811617,
+      "unit": "milliseconds",
+      "direction": "lower_is_better",
+      "samples": [
+        5.811617,
+        5.746741,
+        6.531447
+      ],
+      "failures": 0,
+      "summary": {
+        "max": 6.531447,
+        "mean": 6.029934999999999,
+        "median": 5.811617,
+        "min": 5.746741
+      }
+    },
+    {
+      "name": "rest_throughput_rps",
+      "value": 7752.311056953811,
+      "unit": "requests_per_second",
+      "direction": "higher_is_better",
+      "samples": [
+        7785.485339059132,
+        7173.823670111547,
+        7752.311056953811
+      ],
+      "failures": 0,
+      "summary": {
+        "max": 7785.485339059132,
+        "mean": 7570.540022041496,
+        "median": 7752.311056953811,
+        "min": 7173.823670111547
+      }
+    },
+    {
+      "name": "grpc_p50_latency_ms",
+      "value": 1.152369,
+      "unit": "milliseconds",
+      "direction": "lower_is_better",
+      "samples": [
+        1.262715,
+        1.045955,
+        1.152369
+      ],
+      "failures": 0,
+      "summary": {
+        "max": 1.262715,
+        "mean": 1.1536796666666667,
+        "median": 1.152369,
+        "min": 1.045955
+      }
+    },
+    {
+      "name": "grpc_p95_latency_ms",
+      "value": 3.796319,
+      "unit": "milliseconds",
+      "direction": "lower_is_better",
+      "samples": [
+        3.796319,
+        2.76456,
+        4.378379
+      ],
+      "failures": 0,
+      "summary": {
+        "max": 4.378379,
+        "mean": 3.646419333333333,
+        "median": 3.796319,
+        "min": 2.76456
+      }
+    },
+    {
+      "name": "grpc_p99_latency_ms",
+      "value": 7.263721,
+      "unit": "milliseconds",
+      "direction": "lower_is_better",
+      "samples": [
+        7.263721,
+        3.812227,
+        7.451566
+      ],
+      "failures": 0,
+      "summary": {
+        "max": 7.451566,
+        "mean": 6.175838,
+        "median": 7.263721,
+        "min": 3.812227
+      }
+    },
+    {
+      "name": "grpc_throughput_rps",
+      "value": 6036.663518928964,
+      "unit": "requests_per_second",
+      "direction": "higher_is_better",
+      "samples": [
+        5884.956896133435,
+        7588.128697424787,
+        6036.663518928964
+      ],
+      "failures": 0,
+      "summary": {
+        "max": 7588.128697424787,
+        "mean": 6503.2497041623965,
+        "median": 6036.663518928964,
+        "min": 5884.956896133435
+      }
+    },
+    {
+      "name": "request_failures",
+      "value": 0,
+      "unit": "count",
+      "direction": "target",
+      "samples": [
+        0,
+        0,
+        0
+      ],
+      "failures": 0,
+      "summary": {
+        "max": 0,
+        "mean": 0,
+        "median": 0,
+        "min": 0
+      }
+    },
+    {
+      "name": "rest_over_grpc_p95_ratio",
+      "value": 0.7397591665774023,
+      "unit": "ratio",
+      "direction": "target",
+      "samples": [
+        0.719788827019015,
+        1.2129510663541396,
+        0.7397591665774023
+      ],
+      "failures": 0,
+      "summary": {
+        "max": 1.2129510663541396,
+        "mean": 0.8908330199835189,
+        "median": 0.7397591665774023,
+        "min": 0.719788827019015
+      }
+    },
+    {
+      "name": "grpc_over_rest_throughput_ratio",
+      "value": 0.7786921183347107,
+      "unit": "ratio",
+      "direction": "target",
+      "samples": [
+        0.7558882510007561,
+        1.0577523293525275,
+        0.7786921183347107
+      ],
+      "failures": 0,
+      "summary": {
+        "max": 1.0577523293525275,
+        "mean": 0.8641108995626648,
+        "median": 0.7786921183347107,
+        "min": 0.7558882510007561
+      }
     }
   ],
-  "comparison": {
-    "rest_mean_ms": 0.478,
-    "grpc_mean_ms": 0.667,
-    "speedup_factor": 0.717,
-    "rest_p99_ms": 1.893,
-    "grpc_p99_ms": 2.128,
-    "rest_throughput": 19619.13,
-    "grpc_throughput": 14535.91
-  }
+  "execution": {
+    "command": "pwsh ./tools/run-benchmark.ps1 -Requests 1000 -PayloadBytes 256 -Concurrency 10 -WarmupRequests 100 -Repetitions 3",
+    "started_at": "2026-08-14T04:25:18.616645226Z",
+    "duration_seconds": 0.927470467,
+    "exit_code": 0,
+    "repeat": 3
+  },
+  "environment": {
+    "runtime": "go1.26.5",
+    "architecture": "amd64",
+    "hardware_class": "local-docker",
+    "os": "linux",
+    "cpu_count": 6,
+    "topology": "one-client-one-rest-server-one-grpc-server-loopback"
+  },
+  "provenance": {
+    "source_commit": "7e91e873967ab098e3a5dd04e9a71eed6ade8050",
+    "clean_tree": true,
+    "image_ref": "grpc-vs-rest-bench:7e91e873967a",
+    "image_digest": "sha256:51f5a79b5468a63fb94c09456d8ce7af0790c3294304939bc5c54fe1fc1b1e3d",
+    "dependency_lock_digest": "sha256:e755a4478e3b257cf4c80d0d44e1308ae470ec495830aae8f87daaaf0cbab92f",
+    "producer": "local",
+    "artifact_digest": "sha256:4937f650f4ef54759fd5c7d94593c76e6a60117171eb976b9d988100eb4122fc"
+  },
+  "comparability_key": "sha256:ed746eed2f6aa5699b72fa46d58e3b159048b7a0c7b2bd21b869be2dc6c6cea7"
 }

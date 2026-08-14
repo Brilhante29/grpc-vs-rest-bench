@@ -25,7 +25,7 @@
 ## Public Evidence
 
 - primary metric: `rest_over_grpc_p95_ratio`
-- baseline: `0.800381`
+- baseline: `0.739759`
 - secondary evidence: REST/gRPC p50, p95, p99, throughput, and zero failures
 - command: `pwsh ./tools/run-benchmark.ps1`
 - artifact: `benchmarks/results/benchmark-result.json`

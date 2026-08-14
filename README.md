@@ -1,6 +1,6 @@
 # #15 grpc-vs-rest-bench
 
-**Measured result:** REST median p95 was `2.117 ms` and gRPC median p95 was `2.644 ms` for the same 256-byte unary Echo contract. Median throughput was `10,310.65 req/s` for REST and `6,973.73 req/s` for gRPC, with zero request or semantic-parity failures.
+**Measured result:** REST median p95 was `3.239 ms` and gRPC median p95 was `3.796 ms` for the same 256-byte unary Echo contract. Median throughput was `7,752.31 req/s` for REST and `6,036.66 req/s` for gRPC, with zero request or semantic-parity failures.
 
 **Claim:** protocol choice must follow the workload. This repository compares REST/HTTP 1.1 + JSON and gRPC/HTTP 2 + Protobuf behind one transport-independent Go use case.
 
@@ -27,15 +27,15 @@ Workload: 1,000 requests per protocol per repetition, 100 warmup requests per pr
 
 | Metric | REST | gRPC |
 |---|---:|---:|
-| median p50 latency | 0.617 ms | 1.220 ms |
-| median p95 latency | 2.117 ms | 2.644 ms |
-| median p99 latency | 5.418 ms | 3.970 ms |
-| median throughput | 10,310.65 req/s | 6,973.73 req/s |
+| median p50 latency | 0.858 ms | 1.152 ms |
+| median p95 latency | 3.239 ms | 3.796 ms |
+| median p99 latency | 5.812 ms | 7.264 ms |
+| median throughput | 7,752.31 req/s | 6,036.66 req/s |
 | request/parity failures | 0 | 0 |
 
-The paired median `rest_over_grpc_p95_ratio` was `0.800`; REST's p95 was about 20% lower in this run. gRPC had the lower p99, which is why the report preserves distributions instead of reducing the result to a universal winner.
+The paired median `rest_over_grpc_p95_ratio` was `0.740`; REST's paired p95 was about 26% lower in this run. One of three paired repetitions still favored gRPC for p95 and throughput, which is why the report preserves samples instead of reducing the result to a universal winner.
 
-Evidence source: clean commit `4442f1be7961830dde793c980a3dad56f7841349`, Go `1.26.5`, Linux/amd64, six Docker CPUs. The committed JSON includes all samples, workload/config digests, image digest, dependency-lock digest, executable digest, run UUID, and comparability key.
+Evidence source: clean commit `7e91e873967ab098e3a5dd04e9a71eed6ade8050`, Go `1.26.5`, Linux/amd64, six Docker CPUs. The committed JSON includes all samples, workload/config digests, image digest, dependency-lock digest, executable digest, run UUID, and comparability key.
 
 ## Architecture
 
