@@ -3,7 +3,8 @@ param(
   [ValidateRange(1, 16777216)][int]$PayloadBytes = 256,
   [ValidateRange(1, 10000)][int]$Concurrency = 10,
   [ValidateRange(1, 1000000)][int]$WarmupRequests = 100,
-  [ValidateRange(3, 100)][int]$Repetitions = 3
+  [ValidateRange(3, 100)][int]$Repetitions = 3,
+  [string]$ResultsDir = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -29,6 +30,13 @@ try {
   $env:BENCHMARK_WARMUP_REQUESTS = $WarmupRequests.ToString()
   $env:BENCHMARK_REPETITIONS = $Repetitions.ToString()
   $env:BENCHMARK_COMMAND = "pwsh ./tools/run-benchmark.ps1 -Requests $Requests -PayloadBytes $PayloadBytes -Concurrency $Concurrency -WarmupRequests $WarmupRequests -Repetitions $Repetitions"
+  if ([string]::IsNullOrWhiteSpace($ResultsDir)) {
+    $ResultsDir = Join-Path $root "benchmarks/results"
+  } elseif (-not [System.IO.Path]::IsPathRooted($ResultsDir)) {
+    $ResultsDir = Join-Path $root $ResultsDir
+  }
+  New-Item -ItemType Directory -Force -Path $ResultsDir | Out-Null
+  $env:BENCHMARK_RESULTS_DIR = (Resolve-Path -LiteralPath $ResultsDir).Path
 
   docker compose build benchmark
   if ($LASTEXITCODE -ne 0) { throw "Docker image build failed" }
@@ -42,9 +50,13 @@ try {
   $benchmarkExit = $LASTEXITCODE
   if ($benchmarkExit -ne 0) { throw "Benchmark failed with exit code $benchmarkExit" }
 
-  docker run --rm -v "${root}/benchmarks/results:/results:ro" $env:IMAGE_REF bench-client -validate /results/benchmark-result.json
+  docker run --rm -v "${env:BENCHMARK_RESULTS_DIR}:/results:ro" $env:IMAGE_REF bench-client -validate /results/benchmark-result.json
   if ($LASTEXITCODE -ne 0) { throw "Benchmark report validation failed" }
 } finally {
-  docker compose down --remove-orphans 2>$null | Out-Null
+  $cleanupPreference = $ErrorActionPreference
+  $ErrorActionPreference = "SilentlyContinue"
+  docker compose down --remove-orphans *> $null
+  $ErrorActionPreference = $cleanupPreference
+  $global:LASTEXITCODE = 0
   Pop-Location
 }

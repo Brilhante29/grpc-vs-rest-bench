@@ -1,15 +1,18 @@
 package benchmark
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"runtime/debug"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/Brilhante29/grpc-vs-rest-bench/internal"
@@ -21,116 +24,269 @@ var (
 	GoSumSHA256  = "unknown"
 )
 
-type Methodology struct {
-	ContractVersion string `json:"contract_version"`
-	RequestsPerRep  int    `json:"requests_per_repetition"`
-	WarmupRequests  int    `json:"warmup_requests_per_protocol"`
-	Repetitions     int    `json:"repetitions"`
-	Concurrency     int    `json:"concurrency"`
-	PayloadBytes    int    `json:"payload_bytes"`
-	PayloadSHA256   string `json:"payload_sha256"`
-	ExecutionOrder  string `json:"execution_order"`
-	ConnectionModel string `json:"connection_model"`
+type Workload struct {
+	Version            string `json:"version"`
+	FixtureDigest      string `json:"fixture_digest"`
+	ConfigDigest       string `json:"config_digest"`
+	WarmupIterations   int    `json:"warmup_iterations"`
+	MeasuredIterations int    `json:"measured_iterations"`
+	Concurrency        int    `json:"concurrency"`
 }
 
-type Dependency struct {
-	Path    string `json:"path"`
-	Version string `json:"version"`
-	Sum     string `json:"sum,omitempty"`
+type Metric struct {
+	Name      string             `json:"name"`
+	Value     float64            `json:"value"`
+	Unit      string             `json:"unit"`
+	Direction string             `json:"direction"`
+	Samples   []float64          `json:"samples"`
+	Failures  int                `json:"failures"`
+	Summary   map[string]float64 `json:"summary"`
 }
 
-type Provenance struct {
-	SourceCommit string       `json:"source_commit"`
-	ImageRef     string       `json:"image_ref"`
-	ImageDigest  string       `json:"image_digest"`
-	GoVersion    string       `json:"go_version"`
-	GoSumSHA256  string       `json:"go_sum_sha256"`
-	Dependencies []Dependency `json:"dependencies"`
+type Execution struct {
+	Command         string  `json:"command"`
+	StartedAt       string  `json:"started_at"`
+	DurationSeconds float64 `json:"duration_seconds"`
+	ExitCode        int     `json:"exit_code"`
+	Repeat          int     `json:"repeat"`
 }
 
 type Environment struct {
-	OS       string `json:"os"`
-	Arch     string `json:"arch"`
-	CPUs     int    `json:"num_cpu"`
-	Hostname string `json:"hostname"`
+	Runtime       string `json:"runtime"`
+	Architecture  string `json:"architecture"`
+	HardwareClass string `json:"hardware_class"`
+	OS            string `json:"os"`
+	CPUCount      int    `json:"cpu_count"`
+	Topology      string `json:"topology"`
+}
+
+type Provenance struct {
+	SourceCommit         string `json:"source_commit"`
+	CleanTree            bool   `json:"clean_tree"`
+	ImageRef             string `json:"image_ref"`
+	ImageDigest          string `json:"image_digest"`
+	DependencyLockDigest string `json:"dependency_lock_digest"`
+	Producer             string `json:"producer"`
+	CIRunURL             string `json:"ci_run_url,omitempty"`
+	ArtifactDigest       string `json:"artifact_digest"`
 }
 
 type Report struct {
-	SchemaVersion    string             `json:"schema_version"`
-	Project          string             `json:"project"`
-	Claim            string             `json:"claim"`
-	PrimaryMetric    string             `json:"primary_metric"`
-	Unit             string             `json:"unit"`
-	GeneratedAt      string             `json:"generated_at"`
-	Command          string             `json:"command"`
-	ComparabilityKey string             `json:"comparability_key"`
-	Methodology      Methodology        `json:"methodology"`
-	Provenance       Provenance         `json:"provenance"`
-	Environment      Environment        `json:"environment"`
-	Results          []ProtocolResult   `json:"results"`
-	Comparison       map[string]float64 `json:"comparison"`
-	Limitations      []string           `json:"limitations"`
+	SchemaVersion    int         `json:"schema_version"`
+	RunID            string      `json:"run_id"`
+	Project          string      `json:"project"`
+	BenchmarkID      string      `json:"benchmark_id"`
+	Workload         Workload    `json:"workload"`
+	Metrics          []Metric    `json:"metrics"`
+	Execution        Execution   `json:"execution"`
+	Environment      Environment `json:"environment"`
+	Provenance       Provenance  `json:"provenance"`
+	ComparabilityKey string      `json:"comparability_key"`
 }
 
-func NewReport(cfg Config, payload, command string, results []ProtocolResult) Report {
-	payloadDigest := fmt.Sprintf("%x", sha256.Sum256([]byte(payload)))
-	keyInput := fmt.Sprintf("%s|rest=http1.1+json|grpc=http2+protobuf|requests=%d|warmup=%d|repetitions=%d|concurrency=%d|payload=%d:%s|order=alternating-sequential",
-		internal.ContractVersion, cfg.Requests, cfg.WarmupRequests, cfg.Repetitions, cfg.Concurrency, cfg.PayloadBytes, payloadDigest)
-	key := fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(keyInput)))
-	hostname, _ := os.Hostname()
-	report := Report{
-		SchemaVersion: "benchmark-report/v2", Project: "grpc-vs-rest-bench",
-		Claim:         "Compare REST/HTTP+JSON and gRPC/HTTP2+Protobuf for one unary echo contract",
-		PrimaryMetric: "p95_latency_ms_by_protocol", Unit: "milliseconds",
-		GeneratedAt: time.Now().UTC().Format(time.RFC3339), Command: command, ComparabilityKey: key,
-		Methodology: Methodology{ContractVersion: internal.ContractVersion, RequestsPerRep: cfg.Requests,
-			WarmupRequests: cfg.WarmupRequests, Repetitions: cfg.Repetitions, Concurrency: cfg.Concurrency,
-			PayloadBytes: cfg.PayloadBytes, PayloadSHA256: payloadDigest,
-			ExecutionOrder:  "sequential protocols; first protocol alternates per repetition",
-			ConnectionModel: "REST keep-alive pool; one multiplexed gRPC channel; plaintext loopback TCP"},
-		Provenance: collectProvenance(), Environment: Environment{OS: runtime.GOOS, Arch: runtime.GOARCH, CPUs: runtime.NumCPU(), Hostname: hostname},
-		Results: results,
-		Limitations: []string{
-			"This isolates one unary in-process echo workload; it is not a universal protocol ranking.",
-			"JSON and Protobuf encode the same logical UTF-8 payload but have different wire sizes.",
-			"Client and servers share one container host and run without TLS, proxies, persistence, or cross-region latency.",
-			"A matching comparability key does not replace matching host resources and Docker runtime conditions.",
+func NewReport(cfg Config, payload, command string, results []ProtocolResult, startedAt time.Time, duration time.Duration) (Report, error) {
+	payloadDigest := digestBytes([]byte(payload))
+	configInput := fmt.Sprintf("contract=%s|requests=%d|warmup=%d|repetitions=%d|concurrency=%d|payload_bytes=%d|order=alternating-sequential|rest=http1.1-json|grpc=http2-protobuf",
+		internal.ContractVersion, cfg.Requests, cfg.WarmupRequests, cfg.Repetitions, cfg.Concurrency, cfg.PayloadBytes)
+	configDigest := digestBytes([]byte(configInput))
+	runID, err := newUUID()
+	if err != nil {
+		return Report{}, fmt.Errorf("create benchmark run id: %w", err)
+	}
+	artifactDigest, err := executableDigest()
+	if err != nil {
+		return Report{}, fmt.Errorf("hash benchmark executable: %w", err)
+	}
+	producer := os.Getenv("BENCHMARK_PRODUCER")
+	if producer == "" {
+		producer = "local"
+	}
+	hardwareClass := os.Getenv("BENCHMARK_HARDWARE_CLASS")
+	if hardwareClass == "" {
+		hardwareClass = fmt.Sprintf("docker-%d-vcpu", runtime.NumCPU())
+	}
+
+	return Report{
+		SchemaVersion: 2,
+		RunID:         runID,
+		Project:       "grpc-vs-rest-bench",
+		BenchmarkID:   "rest-grpc-unary-echo",
+		Workload: Workload{
+			Version:            fmt.Sprintf("echo-%s-n%d-p%d", internal.ContractVersion, cfg.Requests, cfg.PayloadBytes),
+			FixtureDigest:      payloadDigest,
+			ConfigDigest:       configDigest,
+			WarmupIterations:   cfg.WarmupRequests,
+			MeasuredIterations: cfg.Repetitions,
+			Concurrency:        cfg.Concurrency,
 		},
-	}
-	report.computeComparison()
-	return report
+		Metrics: buildMetrics(results),
+		Execution: Execution{
+			Command:         command,
+			StartedAt:       startedAt.UTC().Format(time.RFC3339Nano),
+			DurationSeconds: duration.Seconds(),
+			ExitCode:        0,
+			Repeat:          cfg.Repetitions,
+		},
+		Environment: Environment{
+			Runtime:       runtime.Version(),
+			Architecture:  runtime.GOARCH,
+			HardwareClass: hardwareClass,
+			OS:            runtime.GOOS,
+			CPUCount:      runtime.NumCPU(),
+			Topology:      "one-client-one-rest-server-one-grpc-server-loopback",
+		},
+		Provenance: Provenance{
+			SourceCommit:         SourceCommit,
+			CleanTree:            true,
+			ImageRef:             ImageRef,
+			ImageDigest:          os.Getenv("BENCHMARK_IMAGE_DIGEST"),
+			DependencyLockDigest: normalizeDigest(GoSumSHA256),
+			Producer:             producer,
+			CIRunURL:             os.Getenv("BENCHMARK_CI_RUN_URL"),
+			ArtifactDigest:       artifactDigest,
+		},
+		ComparabilityKey: configDigest,
+	}, nil
 }
 
-func collectProvenance() Provenance {
-	dependencies := []Dependency{}
-	if info, ok := debug.ReadBuildInfo(); ok {
-		for _, module := range info.Deps {
-			dependencies = append(dependencies, Dependency{Path: module.Path, Version: module.Version, Sum: module.Sum})
-		}
+func buildMetrics(results []ProtocolResult) []Metric {
+	metrics := make([]Metric, 0, 11)
+	byProtocol := make(map[string]ProtocolResult, len(results))
+	for _, result := range results {
+		key := strings.ToLower(result.Protocol)
+		byProtocol[key] = result
+		failures := result.Aggregate.Failures
+		metrics = append(metrics,
+			metricFromRepetitions(key+"_p50_latency_ms", "milliseconds", "lower_is_better", failures, result.Repetitions, func(r RepetitionResult) float64 { return r.P50MS }),
+			metricFromRepetitions(key+"_p95_latency_ms", "milliseconds", "lower_is_better", failures, result.Repetitions, func(r RepetitionResult) float64 { return r.P95MS }),
+			metricFromRepetitions(key+"_p99_latency_ms", "milliseconds", "lower_is_better", failures, result.Repetitions, func(r RepetitionResult) float64 { return r.P99MS }),
+			metricFromRepetitions(key+"_throughput_rps", "requests_per_second", "higher_is_better", failures, result.Repetitions, func(r RepetitionResult) float64 { return r.ThroughputReqPerS }),
+		)
 	}
-	sort.Slice(dependencies, func(i, j int) bool { return dependencies[i].Path < dependencies[j].Path })
-	return Provenance{SourceCommit: SourceCommit, ImageRef: ImageRef,
-		ImageDigest: os.Getenv("BENCHMARK_IMAGE_DIGEST"), GoVersion: runtime.Version(),
-		GoSumSHA256: GoSumSHA256, Dependencies: dependencies}
+
+	rest, restOK := byProtocol["rest"]
+	grpc, grpcOK := byProtocol["grpc"]
+	if restOK && grpcOK {
+		failureSamples := pairSamples(rest.Repetitions, grpc.Repetitions, func(rest, grpc RepetitionResult) float64 {
+			return float64(rest.Failures + grpc.Failures)
+		})
+		metrics = append(metrics, newMetric("request_failures", "count", "target", failureSamples, sumIntSamples(failureSamples)))
+
+		p95Ratio := pairSamples(rest.Repetitions, grpc.Repetitions, func(rest, grpc RepetitionResult) float64 {
+			if grpc.P95MS == 0 {
+				return 0
+			}
+			return rest.P95MS / grpc.P95MS
+		})
+		metrics = append(metrics, newMetric("rest_over_grpc_p95_ratio", "ratio", "target", p95Ratio, rest.Aggregate.Failures+grpc.Aggregate.Failures))
+
+		throughputRatio := pairSamples(rest.Repetitions, grpc.Repetitions, func(rest, grpc RepetitionResult) float64 {
+			if rest.ThroughputReqPerS == 0 {
+				return 0
+			}
+			return grpc.ThroughputReqPerS / rest.ThroughputReqPerS
+		})
+		metrics = append(metrics, newMetric("grpc_over_rest_throughput_ratio", "ratio", "target", throughputRatio, rest.Aggregate.Failures+grpc.Aggregate.Failures))
+	}
+	return metrics
 }
 
-func (r *Report) computeComparison() {
-	if len(r.Results) != 2 {
-		return
+func metricFromRepetitions(name, unit, direction string, failures int, repetitions []RepetitionResult, value func(RepetitionResult) float64) Metric {
+	samples := make([]float64, 0, len(repetitions))
+	for _, repetition := range repetitions {
+		samples = append(samples, value(repetition))
 	}
-	byName := map[string]AggregateResult{}
-	for _, result := range r.Results {
-		byName[result.Protocol] = result.Aggregate
+	return newMetric(name, unit, direction, samples, failures)
+}
+
+func pairSamples(left, right []RepetitionResult, value func(RepetitionResult, RepetitionResult) float64) []float64 {
+	count := len(left)
+	if len(right) < count {
+		count = len(right)
 	}
-	rest, restOK := byName["REST"]
-	grpc, grpcOK := byName["gRPC"]
-	if !restOK || !grpcOK || grpc.P95MS == 0 || rest.ThroughputReqPerS == 0 {
-		return
+	samples := make([]float64, 0, count)
+	for index := 0; index < count; index++ {
+		samples = append(samples, value(left[index], right[index]))
 	}
-	r.Comparison = map[string]float64{
-		"rest_over_grpc_p95_ratio":        rest.P95MS / grpc.P95MS,
-		"grpc_over_rest_throughput_ratio": grpc.ThroughputReqPerS / rest.ThroughputReqPerS,
+	return samples
+}
+
+func newMetric(name, unit, direction string, samples []float64, failures int) Metric {
+	return Metric{Name: name, Value: median(samples), Unit: unit, Direction: direction, Samples: samples, Failures: failures, Summary: summarizeSamples(samples)}
+}
+
+func summarizeSamples(samples []float64) map[string]float64 {
+	if len(samples) == 0 {
+		return map[string]float64{"min": 0, "median": 0, "max": 0, "mean": 0}
 	}
+	ordered := append([]float64(nil), samples...)
+	sort.Float64s(ordered)
+	total := 0.0
+	for _, sample := range ordered {
+		total += sample
+	}
+	return map[string]float64{
+		"min": ordered[0], "median": median(ordered), "max": ordered[len(ordered)-1], "mean": total / float64(len(ordered)),
+	}
+}
+
+func median(samples []float64) float64 {
+	if len(samples) == 0 {
+		return 0
+	}
+	ordered := append([]float64(nil), samples...)
+	sort.Float64s(ordered)
+	middle := len(ordered) / 2
+	if len(ordered)%2 == 0 {
+		return (ordered[middle-1] + ordered[middle]) / 2
+	}
+	return ordered[middle]
+}
+
+func sumIntSamples(samples []float64) int {
+	total := 0
+	for _, sample := range samples {
+		total += int(sample)
+	}
+	return total
+}
+
+func newUUID() (string, error) {
+	value := make([]byte, 16)
+	if _, err := rand.Read(value); err != nil {
+		return "", err
+	}
+	value[6] = (value[6] & 0x0f) | 0x40
+	value[8] = (value[8] & 0x3f) | 0x80
+	encoded := hex.EncodeToString(value)
+	return fmt.Sprintf("%s-%s-%s-%s-%s", encoded[0:8], encoded[8:12], encoded[12:16], encoded[16:20], encoded[20:32]), nil
+}
+
+func executableDigest() (string, error) {
+	path, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return digestBytes(data), nil
+}
+
+func digestBytes(value []byte) string {
+	digest := sha256.Sum256(value)
+	return "sha256:" + hex.EncodeToString(digest[:])
+}
+
+func normalizeDigest(value string) string {
+	if strings.HasPrefix(value, "sha256:") {
+		return value
+	}
+	if len(value) == 64 {
+		return "sha256:" + value
+	}
+	return value
 }
 
 func (r Report) Save(dir string) error {
@@ -158,54 +314,96 @@ func Load(path string) (Report, error) {
 
 func Validate(report Report, exactProvenance bool) []string {
 	issues := []string{}
-	if report.SchemaVersion != "benchmark-report/v2" {
-		issues = append(issues, "schema_version must be benchmark-report/v2")
+	sha256Pattern := regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
+	if report.SchemaVersion != 2 {
+		issues = append(issues, "schema_version must be integer 2")
 	}
-	if report.Methodology.Repetitions < 3 || report.Methodology.WarmupRequests <= 0 {
-		issues = append(issues, "V2 requires at least 3 repetitions and positive warmup")
+	if !regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`).MatchString(report.RunID) {
+		issues = append(issues, "run_id must be a UUID v4")
 	}
-	if len(report.Results) != 2 {
-		issues = append(issues, "exactly REST and gRPC results are required")
+	if report.Project != "grpc-vs-rest-bench" || report.BenchmarkID != "rest-grpc-unary-echo" {
+		issues = append(issues, "project and benchmark_id must identify the unary echo comparison")
 	}
-	seenProtocols := map[string]bool{}
-	for _, result := range report.Results {
-		seenProtocols[result.Protocol] = true
-		if len(result.Repetitions) != report.Methodology.Repetitions {
-			issues = append(issues, result.Protocol+" repetition count does not match methodology")
+	if report.Workload.WarmupIterations <= 0 || report.Workload.MeasuredIterations < 3 || report.Workload.Concurrency <= 0 {
+		issues = append(issues, "workload requires positive warmup/concurrency and at least 3 measured iterations")
+	}
+	if !sha256Pattern.MatchString(report.Workload.FixtureDigest) || !sha256Pattern.MatchString(report.Workload.ConfigDigest) {
+		issues = append(issues, "workload fixture/config digests must be SHA-256 values")
+	}
+	if report.Execution.Command == "" || report.Execution.ExitCode != 0 || report.Execution.Repeat != report.Workload.MeasuredIterations || report.Execution.DurationSeconds < 0 {
+		issues = append(issues, "execution metadata is incomplete or inconsistent")
+	}
+	if _, err := time.Parse(time.RFC3339Nano, report.Execution.StartedAt); err != nil {
+		issues = append(issues, "execution started_at must be RFC3339")
+	}
+	if report.Environment.Runtime == "" || report.Environment.Architecture == "" || report.Environment.HardwareClass == "" {
+		issues = append(issues, "runtime, architecture and hardware_class are required")
+	}
+
+	requiredMetrics := map[string]bool{
+		"rest_p50_latency_ms": false, "rest_p95_latency_ms": false, "rest_p99_latency_ms": false, "rest_throughput_rps": false,
+		"grpc_p50_latency_ms": false, "grpc_p95_latency_ms": false, "grpc_p99_latency_ms": false, "grpc_throughput_rps": false,
+		"request_failures": false, "rest_over_grpc_p95_ratio": false, "grpc_over_rest_throughput_ratio": false,
+	}
+	metricByName := make(map[string]Metric, len(report.Metrics))
+	for _, metric := range report.Metrics {
+		metricByName[metric.Name] = metric
+		if _, required := requiredMetrics[metric.Name]; required {
+			requiredMetrics[metric.Name] = true
 		}
-		if result.Aggregate.Attempts != result.Aggregate.Successes+result.Aggregate.Failures {
-			issues = append(issues, result.Protocol+" attempt accounting is inconsistent")
+		if metric.Name == "" || metric.Unit == "" || len(metric.Samples) != report.Workload.MeasuredIterations {
+			issues = append(issues, metric.Name+" metric metadata/sample count is invalid")
 		}
-		if result.Aggregate.P50MS > result.Aggregate.P95MS || result.Aggregate.P95MS > result.Aggregate.P99MS {
-			issues = append(issues, result.Protocol+" percentiles are not monotonic")
+		if metric.Direction != "higher_is_better" && metric.Direction != "lower_is_better" && metric.Direction != "target" {
+			issues = append(issues, metric.Name+" direction is invalid")
 		}
-		if result.Aggregate.Failures != 0 {
-			issues = append(issues, result.Protocol+" benchmark must have zero failures")
+		if metric.Failures != 0 {
+			issues = append(issues, metric.Name+" must report zero failures for publication")
+		}
+		for _, sample := range metric.Samples {
+			if math.IsNaN(sample) || math.IsInf(sample, 0) || sample < 0 {
+				issues = append(issues, metric.Name+" contains an invalid sample")
+				break
+			}
 		}
 	}
-	if !seenProtocols["REST"] || !seenProtocols["gRPC"] {
-		issues = append(issues, "results must include REST and gRPC")
+	for name, present := range requiredMetrics {
+		if !present {
+			issues = append(issues, "missing required metric: "+name)
+		}
 	}
-	hex40 := regexp.MustCompile(`^[0-9a-f]{40}$`)
-	hex64 := regexp.MustCompile(`^(sha256:)?[0-9a-f]{64}$`)
-	if !regexp.MustCompile(`^sha256:[0-9a-f]{64}$`).MatchString(report.ComparabilityKey) {
+	for index := 0; index < report.Workload.MeasuredIterations; index++ {
+		for _, protocol := range []string{"rest", "grpc"} {
+			p50, ok50 := metricByName[protocol+"_p50_latency_ms"]
+			p95, ok95 := metricByName[protocol+"_p95_latency_ms"]
+			p99, ok99 := metricByName[protocol+"_p99_latency_ms"]
+			if ok50 && ok95 && ok99 && len(p50.Samples) > index && len(p95.Samples) > index && len(p99.Samples) > index &&
+				(p50.Samples[index] > p95.Samples[index] || p95.Samples[index] > p99.Samples[index]) {
+				issues = append(issues, fmt.Sprintf("%s latency percentiles are not monotonic in repetition %d", protocol, index+1))
+			}
+		}
+	}
+	if failureMetric, ok := metricByName["request_failures"]; ok && failureMetric.Value != 0 {
+		issues = append(issues, "request_failures must be zero")
+	}
+	if !sha256Pattern.MatchString(report.ComparabilityKey) {
 		issues = append(issues, "comparability_key must be a SHA-256 key")
 	}
 	if exactProvenance {
-		if !hex40.MatchString(report.Provenance.SourceCommit) {
+		if !regexp.MustCompile(`^[0-9a-f]{40}$`).MatchString(report.Provenance.SourceCommit) {
 			issues = append(issues, "source_commit must be an exact 40-character Git SHA")
+		}
+		if !report.Provenance.CleanTree {
+			issues = append(issues, "clean_tree must be true")
 		}
 		if report.Provenance.ImageRef == "" || report.Provenance.ImageRef == "unknown" {
 			issues = append(issues, "image_ref is required")
 		}
-		if !hex64.MatchString(report.Provenance.ImageDigest) || len(report.Provenance.ImageDigest) != 71 {
-			issues = append(issues, "image_digest must be an exact sha256 image ID")
+		if !sha256Pattern.MatchString(report.Provenance.ImageDigest) || !sha256Pattern.MatchString(report.Provenance.DependencyLockDigest) || !sha256Pattern.MatchString(report.Provenance.ArtifactDigest) {
+			issues = append(issues, "image, dependency lock and artifact digests must be exact SHA-256 values")
 		}
-		if !hex64.MatchString(report.Provenance.GoSumSHA256) {
-			issues = append(issues, "go_sum_sha256 is required")
-		}
-		if len(report.Provenance.Dependencies) == 0 {
-			issues = append(issues, "dependency provenance is empty")
+		if report.Provenance.Producer != "local" && report.Provenance.Producer != "github-actions" && report.Provenance.Producer != "other-ci" {
+			issues = append(issues, "producer must be local, github-actions or other-ci")
 		}
 	}
 	return issues

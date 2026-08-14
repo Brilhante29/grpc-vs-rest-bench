@@ -52,5 +52,8 @@ services:
     environment:
       BENCHMARK_IMAGE_DIGEST: ${BENCHMARK_IMAGE_DIGEST:-unknown}
       BENCHMARK_COMMAND: ${BENCHMARK_COMMAND:-pwsh ./tools/run-benchmark.ps1}
+      BENCHMARK_PRODUCER: ${BENCHMARK_PRODUCER:-local}
+      BENCHMARK_HARDWARE_CLASS: ${BENCHMARK_HARDWARE_CLASS:-local-docker}
+      BENCHMARK_CI_RUN_URL: ${BENCHMARK_CI_RUN_URL:-}
     volumes:
-      - ./benchmarks/results:/results
+      - ${BENCHMARK_RESULTS_DIR:-./benchmarks/results}:/results

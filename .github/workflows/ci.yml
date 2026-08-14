@@ -31,7 +31,11 @@ jobs:
 
       - name: Real Docker Compose benchmark smoke
         shell: pwsh
-        run: ./tools/run-benchmark.ps1 -Requests 100 -PayloadBytes 256 -Concurrency 10 -WarmupRequests 20 -Repetitions 3
+        env:
+          BENCHMARK_PRODUCER: github-actions
+          BENCHMARK_HARDWARE_CLASS: github-hosted-ubuntu-latest
+          BENCHMARK_CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: ./tools/run-benchmark.ps1 -Requests 100 -PayloadBytes 256 -Concurrency 10 -WarmupRequests 20 -Repetitions 3 -ResultsDir (Join-Path $env:RUNNER_TEMP "grpc-vs-rest-bench")
 
       - name: Portfolio validation
         shell: pwsh

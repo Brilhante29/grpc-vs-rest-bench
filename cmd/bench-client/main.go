@@ -50,11 +50,15 @@ func main() {
 		command = reproducibleCommand
 	}
 	log.Printf("V2 benchmark: %d requests x %d repetitions, %dB payload, concurrency %d", cfg.Requests, cfg.Repetitions, cfg.PayloadBytes, cfg.Concurrency)
+	startedAt := time.Now().UTC()
 	results, err := benchmark.RunPair(context.Background(), cfg, payload, restClient, grpcClient)
 	if err != nil {
 		log.Fatal(err)
 	}
-	report := benchmark.NewReport(cfg, payload, command, results)
+	report, err := benchmark.NewReport(cfg, payload, command, results, startedAt, time.Since(startedAt))
+	if err != nil {
+		log.Fatal(err)
+	}
 	if err := report.Save(*resultsDir); err != nil {
 		log.Fatal(err)
 	}
@@ -79,7 +83,7 @@ func validate(path string) {
 		}
 		os.Exit(1)
 	}
-	fmt.Println("benchmark-report/v2 validation passed")
+	fmt.Println("benchmark result v2 validation passed")
 }
 
 func init() {
