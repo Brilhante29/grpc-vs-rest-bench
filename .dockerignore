@@ -1,0 +1,10 @@
+.git
+.github
+.portfolio
+.portfolio-control
+.aitmpl
+.claude
+.codex
+benchmarks/results
+*.exe
+*.test

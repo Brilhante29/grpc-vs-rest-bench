@@ -17,8 +17,8 @@ import (
 
 var (
 	SourceCommit = "unknown"
-	ImageRef    = "unknown"
-	GoSumSHA256 = "unknown"
+	ImageRef     = "unknown"
+	GoSumSHA256  = "unknown"
 )
 
 type Methodology struct {
@@ -80,13 +80,13 @@ func NewReport(cfg Config, payload, command string, results []ProtocolResult) Re
 	hostname, _ := os.Hostname()
 	report := Report{
 		SchemaVersion: "benchmark-report/v2", Project: "grpc-vs-rest-bench",
-		Claim: "Compare REST/HTTP+JSON and gRPC/HTTP2+Protobuf for one unary echo contract",
+		Claim:         "Compare REST/HTTP+JSON and gRPC/HTTP2+Protobuf for one unary echo contract",
 		PrimaryMetric: "p95_latency_ms_by_protocol", Unit: "milliseconds",
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339), Command: command, ComparabilityKey: key,
 		Methodology: Methodology{ContractVersion: internal.ContractVersion, RequestsPerRep: cfg.Requests,
 			WarmupRequests: cfg.WarmupRequests, Repetitions: cfg.Repetitions, Concurrency: cfg.Concurrency,
 			PayloadBytes: cfg.PayloadBytes, PayloadSHA256: payloadDigest,
-			ExecutionOrder: "sequential protocols; first protocol alternates per repetition",
+			ExecutionOrder:  "sequential protocols; first protocol alternates per repetition",
 			ConnectionModel: "REST keep-alive pool; one multiplexed gRPC channel; plaintext loopback TCP"},
 		Provenance: collectProvenance(), Environment: Environment{OS: runtime.GOOS, Arch: runtime.GOARCH, CPUs: runtime.NumCPU(), Hostname: hostname},
 		Results: results,
@@ -128,7 +128,7 @@ func (r *Report) computeComparison() {
 		return
 	}
 	r.Comparison = map[string]float64{
-		"rest_over_grpc_p95_ratio": rest.P95MS / grpc.P95MS,
+		"rest_over_grpc_p95_ratio":        rest.P95MS / grpc.P95MS,
 		"grpc_over_rest_throughput_ratio": grpc.ThroughputReqPerS / rest.ThroughputReqPerS,
 	}
 }
@@ -158,23 +158,55 @@ func Load(path string) (Report, error) {
 
 func Validate(report Report, exactProvenance bool) []string {
 	issues := []string{}
-	if report.SchemaVersion != "benchmark-report/v2" { issues = append(issues, "schema_version must be benchmark-report/v2") }
-	if report.Methodology.Repetitions < 3 || report.Methodology.WarmupRequests <= 0 { issues = append(issues, "V2 requires at least 3 repetitions and positive warmup") }
-	if len(report.Results) != 2 { issues = append(issues, "exactly REST and gRPC results are required") }
+	if report.SchemaVersion != "benchmark-report/v2" {
+		issues = append(issues, "schema_version must be benchmark-report/v2")
+	}
+	if report.Methodology.Repetitions < 3 || report.Methodology.WarmupRequests <= 0 {
+		issues = append(issues, "V2 requires at least 3 repetitions and positive warmup")
+	}
+	if len(report.Results) != 2 {
+		issues = append(issues, "exactly REST and gRPC results are required")
+	}
+	seenProtocols := map[string]bool{}
 	for _, result := range report.Results {
-		if len(result.Repetitions) != report.Methodology.Repetitions { issues = append(issues, result.Protocol+" repetition count does not match methodology") }
-		if result.Aggregate.Attempts != result.Aggregate.Successes+result.Aggregate.Failures { issues = append(issues, result.Protocol+" attempt accounting is inconsistent") }
-		if result.Aggregate.P50MS > result.Aggregate.P95MS || result.Aggregate.P95MS > result.Aggregate.P99MS { issues = append(issues, result.Protocol+" percentiles are not monotonic") }
+		seenProtocols[result.Protocol] = true
+		if len(result.Repetitions) != report.Methodology.Repetitions {
+			issues = append(issues, result.Protocol+" repetition count does not match methodology")
+		}
+		if result.Aggregate.Attempts != result.Aggregate.Successes+result.Aggregate.Failures {
+			issues = append(issues, result.Protocol+" attempt accounting is inconsistent")
+		}
+		if result.Aggregate.P50MS > result.Aggregate.P95MS || result.Aggregate.P95MS > result.Aggregate.P99MS {
+			issues = append(issues, result.Protocol+" percentiles are not monotonic")
+		}
+		if result.Aggregate.Failures != 0 {
+			issues = append(issues, result.Protocol+" benchmark must have zero failures")
+		}
+	}
+	if !seenProtocols["REST"] || !seenProtocols["gRPC"] {
+		issues = append(issues, "results must include REST and gRPC")
 	}
 	hex40 := regexp.MustCompile(`^[0-9a-f]{40}$`)
 	hex64 := regexp.MustCompile(`^(sha256:)?[0-9a-f]{64}$`)
-	if !regexp.MustCompile(`^sha256:[0-9a-f]{64}$`).MatchString(report.ComparabilityKey) { issues = append(issues, "comparability_key must be a SHA-256 key") }
+	if !regexp.MustCompile(`^sha256:[0-9a-f]{64}$`).MatchString(report.ComparabilityKey) {
+		issues = append(issues, "comparability_key must be a SHA-256 key")
+	}
 	if exactProvenance {
-		if !hex40.MatchString(report.Provenance.SourceCommit) { issues = append(issues, "source_commit must be an exact 40-character Git SHA") }
-		if report.Provenance.ImageRef == "" || report.Provenance.ImageRef == "unknown" { issues = append(issues, "image_ref is required") }
-		if !hex64.MatchString(report.Provenance.ImageDigest) || len(report.Provenance.ImageDigest) != 71 { issues = append(issues, "image_digest must be an exact sha256 image ID") }
-		if !hex64.MatchString(report.Provenance.GoSumSHA256) { issues = append(issues, "go_sum_sha256 is required") }
-		if len(report.Provenance.Dependencies) == 0 { issues = append(issues, "dependency provenance is empty") }
+		if !hex40.MatchString(report.Provenance.SourceCommit) {
+			issues = append(issues, "source_commit must be an exact 40-character Git SHA")
+		}
+		if report.Provenance.ImageRef == "" || report.Provenance.ImageRef == "unknown" {
+			issues = append(issues, "image_ref is required")
+		}
+		if !hex64.MatchString(report.Provenance.ImageDigest) || len(report.Provenance.ImageDigest) != 71 {
+			issues = append(issues, "image_digest must be an exact sha256 image ID")
+		}
+		if !hex64.MatchString(report.Provenance.GoSumSHA256) {
+			issues = append(issues, "go_sum_sha256 is required")
+		}
+		if len(report.Provenance.Dependencies) == 0 {
+			issues = append(issues, "dependency provenance is empty")
+		}
 	}
 	return issues
 }

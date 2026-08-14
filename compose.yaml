@@ -1,0 +1,56 @@
+name: grpc-vs-rest-bench
+
+x-runtime: &runtime
+  image: ${IMAGE_REF:-grpc-vs-rest-bench:local}
+  restart: "no"
+
+services:
+  rest:
+    <<: *runtime
+    command: ["rest-server"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 1s
+      timeout: 1s
+      retries: 15
+
+  grpc:
+    <<: *runtime
+    command: ["grpc-server"]
+
+  benchmark:
+    <<: *runtime
+    build:
+      context: .
+      args:
+        SOURCE_COMMIT: ${SOURCE_COMMIT:-unknown}
+        IMAGE_REF: ${IMAGE_REF:-grpc-vs-rest-bench:local}
+        GO_SUM_SHA256: ${GO_SUM_SHA256:-unknown}
+    command:
+      - bench-client
+      - -rest
+      - rest:8080
+      - -grpc
+      - grpc:50051
+      - -n
+      - ${BENCHMARK_REQUESTS:-1000}
+      - -payload
+      - ${BENCHMARK_PAYLOAD_BYTES:-256}
+      - -c
+      - ${BENCHMARK_CONCURRENCY:-10}
+      - -warmup
+      - ${BENCHMARK_WARMUP_REQUESTS:-100}
+      - -repetitions
+      - ${BENCHMARK_REPETITIONS:-3}
+      - -out
+      - /results
+    depends_on:
+      rest:
+        condition: service_healthy
+      grpc:
+        condition: service_started
+    environment:
+      BENCHMARK_IMAGE_DIGEST: ${BENCHMARK_IMAGE_DIGEST:-unknown}
+      BENCHMARK_COMMAND: ${BENCHMARK_COMMAND:-pwsh ./tools/run-benchmark.ps1}
+    volumes:
+      - ./benchmarks/results:/results

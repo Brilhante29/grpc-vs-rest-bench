@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -12,7 +13,9 @@ import (
 	pb "github.com/Brilhante29/grpc-vs-rest-bench/internal/proto/benchmark/v1"
 	"github.com/go-chi/chi/v5"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 type restRequest struct {
@@ -98,6 +101,9 @@ func NewGRPCServer(logic Echoer) *GRPCServer { return &GRPCServer{logic: logic} 
 func (s *GRPCServer) Echo(ctx context.Context, req *pb.EchoRequest) (*pb.EchoResponse, error) {
 	resp, err := s.logic.Echo(ctx, EchoRequest{RequestID: req.GetRequestId(), Payload: req.GetPayload()})
 	if err != nil {
+		if errors.Is(err, ErrRequestIDRequired) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
 		return nil, err
 	}
 	return &pb.EchoResponse{RequestId: resp.RequestID, Payload: resp.Payload, PayloadSha256: resp.PayloadSHA256}, nil

@@ -1,22 +1,40 @@
 #!/bin/sh
 set -e
 
-# Start both servers in background
+mode="${1:-bench-all}"
+shift || true
+
+case "$mode" in
+  rest-server|grpc-server|bench-client)
+    exec "$mode" "$@"
+    ;;
+  bench-all)
+    ;;
+  *)
+    echo "unknown mode: $mode" >&2
+    exit 64
+    ;;
+esac
+
 grpc-server &
-GRPC_PID=$!
-
+grpc_pid=$!
 rest-server &
-REST_PID=$!
+rest_pid=$!
 
-# Wait for servers to be ready
-sleep 2
+cleanup() {
+  kill "$grpc_pid" "$rest_pid" 2>/dev/null || true
+  wait "$grpc_pid" "$rest_pid" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
 
-# Run benchmark
-bench-client "$@"
-BENCH_EXIT=$?
+attempt=0
+until wget -q -O /dev/null http://127.0.0.1:8080/healthz; do
+  attempt=$((attempt + 1))
+  if [ "$attempt" -ge 50 ]; then
+    echo "REST server did not become ready" >&2
+    exit 1
+  fi
+  sleep 0.1
+done
 
-# Cleanup
-kill $GRPC_PID $REST_PID 2>/dev/null || true
-wait $GRPC_PID $REST_PID 2>/dev/null || true
-
-exit $BENCH_EXIT
+bench-client -rest 127.0.0.1:8080 -grpc 127.0.0.1:50051 "$@"

@@ -23,8 +23,8 @@ const (
 
 type EchoRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	PayloadBytes  int32                  `protobuf:"varint,2,opt,name=payload_bytes,json=payloadBytes,proto3" json:"payload_bytes,omitempty"`
+	RequestId     string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	Payload       string                 `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -59,26 +59,27 @@ func (*EchoRequest) Descriptor() ([]byte, []int) {
 	return file_proto_benchmark_v1_service_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *EchoRequest) GetMessage() string {
+func (x *EchoRequest) GetRequestId() string {
 	if x != nil {
-		return x.Message
+		return x.RequestId
 	}
 	return ""
 }
 
-func (x *EchoRequest) GetPayloadBytes() int32 {
+func (x *EchoRequest) GetPayload() string {
 	if x != nil {
-		return x.PayloadBytes
+		return x.Payload
 	}
-	return 0
+	return ""
 }
 
 type EchoResponse struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	Message         string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
-	ServerTimestamp int64                  `protobuf:"varint,2,opt,name=server_timestamp,json=serverTimestamp,proto3" json:"server_timestamp,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RequestId     string                 `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	Payload       string                 `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
+	PayloadSha256 string                 `protobuf:"bytes,3,opt,name=payload_sha256,json=payloadSha256,proto3" json:"payload_sha256,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *EchoResponse) Reset() {
@@ -111,31 +112,41 @@ func (*EchoResponse) Descriptor() ([]byte, []int) {
 	return file_proto_benchmark_v1_service_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *EchoResponse) GetMessage() string {
+func (x *EchoResponse) GetRequestId() string {
 	if x != nil {
-		return x.Message
+		return x.RequestId
 	}
 	return ""
 }
 
-func (x *EchoResponse) GetServerTimestamp() int64 {
+func (x *EchoResponse) GetPayload() string {
 	if x != nil {
-		return x.ServerTimestamp
+		return x.Payload
 	}
-	return 0
+	return ""
+}
+
+func (x *EchoResponse) GetPayloadSha256() string {
+	if x != nil {
+		return x.PayloadSha256
+	}
+	return ""
 }
 
 var File_proto_benchmark_v1_service_proto protoreflect.FileDescriptor
 
 const file_proto_benchmark_v1_service_proto_rawDesc = "" +
 	"\n" +
-	" proto/benchmark/v1/service.proto\x12\fbenchmark.v1\"L\n" +
-	"\vEchoRequest\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\x12#\n" +
-	"\rpayload_bytes\x18\x02 \x01(\x05R\fpayloadBytes\"S\n" +
-	"\fEchoResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\x12)\n" +
-	"\x10server_timestamp\x18\x02 \x01(\x03R\x0fserverTimestamp2Q\n" +
+	" proto/benchmark/v1/service.proto\x12\fbenchmark.v1\"F\n" +
+	"\vEchoRequest\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12\x18\n" +
+	"\apayload\x18\x02 \x01(\tR\apayload\"n\n" +
+	"\fEchoResponse\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x01 \x01(\tR\trequestId\x12\x18\n" +
+	"\apayload\x18\x02 \x01(\tR\apayload\x12%\n" +
+	"\x0epayload_sha256\x18\x03 \x01(\tR\rpayloadSha2562Q\n" +
 	"\x10BenchmarkService\x12=\n" +
 	"\x04Echo\x12\x19.benchmark.v1.EchoRequest\x1a\x1a.benchmark.v1.EchoResponseBGZEgithub.com/Brilhante29/grpc-vs-rest-bench/internal/proto/benchmark/v1b\x06proto3"
 

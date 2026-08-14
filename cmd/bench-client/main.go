@@ -46,6 +46,9 @@ func main() {
 
 	command := fmt.Sprintf("bench-client -n %d -payload %d -c %d -warmup %d -repetitions %d",
 		cfg.Requests, cfg.PayloadBytes, cfg.Concurrency, cfg.WarmupRequests, cfg.Repetitions)
+	if reproducibleCommand := os.Getenv("BENCHMARK_COMMAND"); reproducibleCommand != "" {
+		command = reproducibleCommand
+	}
 	log.Printf("V2 benchmark: %d requests x %d repetitions, %dB payload, concurrency %d", cfg.Requests, cfg.Repetitions, cfg.PayloadBytes, cfg.Concurrency)
 	results, err := benchmark.RunPair(context.Background(), cfg, payload, restClient, grpcClient)
 	if err != nil {

@@ -60,3 +60,16 @@ func TestReportRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestValidateRejectsFailureAndMissingProtocol(t *testing.T) {
+	cfg := Config{Requests: 1, WarmupRequests: 1, Repetitions: 3, Concurrency: 1, PayloadBytes: 1, RequestTimeout: time.Second}
+	repetitions := make([]RepetitionResult, 3)
+	report := NewReport(cfg, "A", "test", []ProtocolResult{
+		{Protocol: "REST", Repetitions: repetitions, Aggregate: AggregateResult{Attempts: 1, Failures: 1}},
+		{Protocol: "HTTP", Repetitions: repetitions},
+	})
+	issues := strings.Join(Validate(report, false), "; ")
+	if !strings.Contains(issues, "zero failures") || !strings.Contains(issues, "REST and gRPC") {
+		t.Fatalf("expected failure and protocol issues, got %q", issues)
+	}
+}

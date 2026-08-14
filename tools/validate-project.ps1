@@ -35,6 +35,7 @@ function Invoke-Checked {
 
 $requiredFiles = @(
   "README.md",
+  "compose.yaml",
   "project.yaml",
   "REFERENCES.md",
   "AGENTS.md",
@@ -80,8 +81,12 @@ if ($benchmarkFiles.Count -eq 0) {
 Push-Location -LiteralPath $root
 try {
   foreach ($file in $benchmarkFiles) {
-    Invoke-Checked "benchmark JSON validation: $($file.Name)" { python -m json.tool $file.FullName | Out-Null }
+    Invoke-Checked "benchmark JSON validation: $($file.Name)" { go run ./cmd/bench-client -validate $file.FullName }
   }
+
+  Invoke-Checked "Go tests" { go test ./... }
+  Invoke-Checked "Go vet" { go vet ./... }
+  Invoke-Checked "Go build" { go build ./... }
 
   if (Test-Path -LiteralPath (Join-Path $root "src") -PathType Container) {
     $previousPythonPath = $env:PYTHONPATH
@@ -118,6 +123,12 @@ if ($forbidden) {
 if (-not $SkipDocker -and (Test-Path -LiteralPath (Join-Path $root "Dockerfile") -PathType Leaf)) {
   $imageName = (Split-Path -Leaf $root).ToLowerInvariant()
   Invoke-Checked "docker build" { docker build -t $imageName $root | Out-Null }
+  Push-Location -LiteralPath $root
+  try {
+    Invoke-Checked "Docker Compose config" { docker compose config --quiet }
+  } finally {
+    Pop-Location
+  }
 }
 
 if ($failures.Count -gt 0) {
