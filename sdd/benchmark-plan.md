@@ -1,43 +1,55 @@
 # Benchmark Plan: grpc-vs-rest-bench
 
-## Hypothesis
+## Question
 
-gRPC (HTTP/2 + Protobuf) will show lower latency than REST (HTTP/1.1 + JSON) for identical Echo request/response workloads, measured by latency_ms_by_protocol. Expected speedup: 2-5x.
+How do REST/HTTP 1.1 + JSON and gRPC/HTTP 2 + Protobuf compare for one identical unary Echo workload on a local Docker host?
 
-## Command
+This is a measurement question, not a prediction that one protocol always wins.
 
-```bash
-docker run --rm grpc-vs-rest-bench -n 1000 -payload 256 -c 10
+## Canonical Command
+
+```powershell
+pwsh ./tools/run-benchmark.ps1 -Requests 1000 -PayloadBytes 256 -Concurrency 10 -WarmupRequests 100 -Repetitions 3
 ```
 
-## Environment
+The runner refuses a dirty worktree, builds an image tagged from the exact source commit, resolves the image digest, runs the real REST and gRPC servers, validates the report, and tears down only this Compose project.
 
-- OS: Linux (Docker container on alpine:3.21)
-- CPU: host-dependent
-- RAM: host-dependent
-- GPU: N/A
-- Docker version: host-dependent
-- Date: recorded in benchmark JSON
+## Controlled Inputs
 
-## Inputs
-
-- fixture: synthetic payload generated in EchoLogic
-- dataset size: 256 bytes (configurable via -payload)
-- repetitions: 1000 per protocol (configurable via -n)
-- warmup: none (cold start measurement)
-- concurrency: 10 (configurable via -c)
+- contract: `echo.v1`
+- payload: deterministic 256-byte ASCII string, recorded by SHA-256
+- measured requests: 1,000 per protocol and repetition
+- warmup: 100 requests per protocol
+- repetitions: 3
+- concurrency: 10
+- execution order: alternating first protocol per repetition
+- REST connection model: HTTP keep-alive pool
+- gRPC connection model: one multiplexed channel
 
 ## Metrics
 
-| Metric | Unit | Source | Why it matters |
-|---|---|---|---:|---|
-| latency_ms_by_protocol | milliseconds | benchmark client | proves the repo claim; REST vs gRPC comparison |
-| throughput_req_per_sec | requests/second | benchmark client | secondary metric for capacity comparison |
+| Metric family | Unit | Interpretation |
+|---|---|---|
+| `{rest,grpc}_p{50,95,99}_latency_ms` | milliseconds | lower is better within the controlled workload |
+| `{rest,grpc}_throughput_rps` | requests/second | higher is better within the controlled workload |
+| `rest_over_grpc_p95_ratio` | ratio | paired p95 comparison |
+| `grpc_over_rest_throughput_ratio` | ratio | paired throughput comparison |
+| `request_failures` | count | publication target is zero |
 
-## Result schema
+Each value is the median of three repetition-level samples. The raw samples and min/median/max/mean summaries remain in the JSON.
 
-Output must be JSON and include project, metric, value, unit, timestamp, environment, and command. Schema defined in internal/benchmark/report.go.
+## Observed Baseline
 
-## Post angle
+- REST p95: `2.116550 ms`
+- gRPC p95: `2.644427 ms`
+- REST throughput: `10,310.648 req/s`
+- gRPC throughput: `6,973.729 req/s`
+- failures: `0`
 
-#15 grpc-vs-rest-bench: latency_ms_by_protocol as a reproducible portfolio benchmark. tl;dr: gRPC beats REST by 2-5x on latency for small payloads.
+REST won median p95 and throughput in this small unary workload; gRPC won median p99. The post should explain the workload and the mixed result instead of claiming a universal protocol winner.
+
+## Result Contract
+
+The artifact conforms to `.portfolio/contracts/benchmark-result-v2.schema.json`: integer schema version 2, UUID, workload digests, repetition samples, execution metadata, environment, exact provenance, and comparability key.
+
+CI writes smoke evidence to the runner temporary directory so it never replaces the committed publication baseline.

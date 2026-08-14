@@ -48,6 +48,38 @@ $requiredFiles = @(
 )
 foreach ($file in $requiredFiles) { Require-File $file }
 
+$readmePath = Join-Path $root "README.md"
+if (Test-Path -LiteralPath $readmePath -PathType Leaf) {
+  $readme = Get-Content -Raw -LiteralPath $readmePath
+  if ($readme -notmatch '^# #15 grpc-vs-rest-bench') {
+    Add-Failure "README must open with project number and name"
+  }
+  foreach ($evidence in @("2.117 ms", "2.644 ms", "10,310.65 req/s", "6,973.73 req/s", "rest_over_grpc_p95_ratio")) {
+    if ($readme -notmatch [regex]::Escape($evidence)) {
+      Add-Failure "README is missing publication evidence: $evidence"
+    }
+  }
+}
+
+$projectPath = Join-Path $root "project.yaml"
+if (Test-Path -LiteralPath $projectPath -PathType Leaf) {
+  $project = Get-Content -Raw -LiteralPath $projectPath
+  if ($project -notmatch '(?m)^status: published\r?$') {
+    Add-Failure "project.yaml status must be published"
+  }
+  if ($project -notmatch '(?m)^  primary_metric: rest_over_grpc_p95_ratio\r?$') {
+    Add-Failure "project.yaml primary metric must match the V2 comparison artifact"
+  }
+}
+
+$workflowPath = Join-Path $root ".github/workflows/ci.yml"
+if (Test-Path -LiteralPath $workflowPath -PathType Leaf) {
+  $workflow = Get-Content -Raw -LiteralPath $workflowPath
+  if ($workflow -notmatch 'RUNNER_TEMP' -or $workflow -notmatch 'ResultsDir') {
+    Add-Failure "CI benchmark smoke must write outside the canonical publication path"
+  }
+}
+
 $reuseReviewPath = Join-Path $root "sdd/reuse-improvement-review.md"
 if (Test-Path -LiteralPath $reuseReviewPath -PathType Leaf) {
   $reuseReview = Get-Content -Raw -LiteralPath $reuseReviewPath
@@ -80,13 +112,24 @@ if ($benchmarkFiles.Count -eq 0) {
 
 Push-Location -LiteralPath $root
 try {
-  foreach ($file in $benchmarkFiles) {
-    Invoke-Checked "benchmark JSON validation: $($file.Name)" { go run ./cmd/bench-client -validate $file.FullName }
+  $go = Get-Command go -ErrorAction SilentlyContinue
+  if ($go) {
+    foreach ($file in $benchmarkFiles) {
+      Invoke-Checked "benchmark JSON validation: $($file.Name)" { go run ./cmd/bench-client -validate $file.FullName }
+    }
+    Invoke-Checked "Go format" {
+      $unformatted = @(gofmt -l .)
+      if ($unformatted.Count -gt 0) { Write-Host ($unformatted -join [Environment]::NewLine); $global:LASTEXITCODE = 1 }
+    }
+    Invoke-Checked "Go tests" { go test ./... }
+    Invoke-Checked "Go vet" { go vet ./... }
+    Invoke-Checked "Go build" { go build ./... }
+  } elseif (-not $SkipDocker) {
+    $goChecks = '/usr/local/go/bin/go run ./cmd/bench-client -validate /src/benchmarks/results/benchmark-result.json && test -z "$(/usr/local/go/bin/gofmt -l .)" && /usr/local/go/bin/go test -count=1 ./... && /usr/local/go/bin/go vet ./... && /usr/local/go/bin/go build ./...'
+    Invoke-Checked "containerized Go validation" { docker run --rm -v "${root}:/src" -w /src golang:1.26.5-alpine3.24 sh -lc $goChecks }
+  } else {
+    Add-Failure "Go toolchain is unavailable and Docker validation was skipped"
   }
-
-  Invoke-Checked "Go tests" { go test ./... }
-  Invoke-Checked "Go vet" { go vet ./... }
-  Invoke-Checked "Go build" { go build ./... }
 
   if (Test-Path -LiteralPath (Join-Path $root "src") -PathType Container) {
     $previousPythonPath = $env:PYTHONPATH
@@ -118,6 +161,15 @@ $searchFiles = Get-ChildItem -Path $root -Recurse -File | Where-Object {
 $forbidden = Select-String -Path $searchFiles.FullName -Pattern $patterns -SimpleMatch -ErrorAction SilentlyContinue
 if ($forbidden) {
   Add-Failure "Forbidden legacy project nickname found"
+}
+$mojibakePatterns = @(
+  [string][char]0x00C3,
+  ([string][char]0x00E2 + [string][char]0x20AC),
+  [string][char]0xFFFD
+)
+$mojibake = Select-String -Path $searchFiles.FullName -Pattern $mojibakePatterns -SimpleMatch -ErrorAction SilentlyContinue
+if ($mojibake) {
+  Add-Failure "Mojibake found in publication files"
 }
 
 if (-not $SkipDocker -and (Test-Path -LiteralPath (Join-Path $root "Dockerfile") -PathType Leaf)) {

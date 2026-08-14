@@ -1,20 +1,12 @@
 # Release Checklist
 
-## Pre-release
+- [x] `go test -race -count=1 ./...` is part of CI.
+- [x] `go vet ./...` and `go build ./...` pass locally in Docker.
+- [x] Real REST and gRPC paths pass semantic parity tests.
+- [x] Docker build and Compose benchmark pass.
+- [x] Common V2 artifact has three samples and exact provenance.
+- [x] README opens with measured numbers and limitations.
+- [x] CI smoke writes outside the canonical publication path.
+- [x] SDD, references, reuse review, and no-secret default are complete.
 
-- [x] go build ./... passes
-- [x] go test -v ./... passes
-- [x] Docker build passes
-- [x] Benchmark JSON written to benchmarks/results/
-- [x] README has project number and benchmark table
-- [x] REFERENCES.md complete
-- [x] project.yaml status: benchmarked
-- [x] All SDD documents filled
-- [x] No secrets committed
-- [x] .gitignore correct
-
-## Post-release
-
-- [ ] Tag release with v0.1.0
-- [ ] Push to GitHub
-- [ ] Verify CI passes
+The external release controller must confirm the CI run belongs to the exact pushed head before counting the repository as published.

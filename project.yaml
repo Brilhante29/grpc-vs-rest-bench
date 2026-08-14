@@ -6,8 +6,8 @@ program:
   shared_assets:
     - benchmark-report-schema
     - docker-multistage-go-template
-status: benchmarked
-claim: comparacao REST vs gRPC
+status: published
+claim: Compare REST and gRPC behind one transport-independent use case and publish reproducible latency, throughput, and parity evidence
 stack:
   - go
   - grpc
@@ -41,7 +41,7 @@ decision_brain:
   principles:
     coupling_rule: domain/use cases do not depend on framework, database, broker, cloud SDK, transport, or UI
     solid: [srp, ocp, lsp, isp, dip]
-    simplicity_rule: Single Echo RPC; no DB, no auth, no streaming â€” minimal surface for transport comparison
+    simplicity_rule: Single Echo RPC; no DB, no auth, and no streaming keeps the transport comparison isolated
     testability_rule: EchoLogic is pure Go struct, testable without gRPC/HTTP transport
     rejected_overengineering:
       - streaming RPCs
@@ -61,7 +61,7 @@ decision_brain:
     unsupported_behaviors: []
   database: none
   runtime: docker-container
-  library_policy: Minimal deps â€” chi for REST routing, grpc+protobuf for gRPC, stdlib for everything else
+  library_policy: Minimal dependencies; chi for REST routing, grpc+protobuf for gRPC, and the standard library elsewhere
   record_path: sdd/technical-decision.md
   rejected_options:
     - option: fiber (REST framework)
@@ -116,9 +116,9 @@ reuse:
     - templates
     - skills
 benchmark:
-  primary_metric: latency_ms_by_protocol
-  unit: milliseconds
-  command: docker run --rm grpc-vs-rest-bench
+  primary_metric: rest_over_grpc_p95_ratio
+  unit: ratio
+  command: pwsh ./tools/run-benchmark.ps1
   result_path: benchmarks/results/benchmark-result.json
 release:
   docker: implemented

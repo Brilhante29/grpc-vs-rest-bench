@@ -1,37 +1,30 @@
 # Agent Handoff
 
-## Principal Agent Summary
+## Current State
 
-Project #15 grpc-vs-rest-bench has been implemented from scaffold to "benchmarked" status.
+Project #15 is implementation- and evidence-complete. The canonical V2 result was generated from clean source commit `4442f1be7961830dde793c980a3dad56f7841349` and must remain separate from CI smoke output.
 
-## Completed Milestones
+## Verified Behavior
 
-1. Proto definition and generated protobuf/gRPC code
-2. Shared EchoLogic in internal/
-3. gRPC server (cmd/grpc-server)
-4. REST server (cmd/rest-server)
-5. Benchmark client (cmd/bench-client)
-6. Docker multi-stage build
-7. GitHub CI workflow
-8. Tests for internal packages
-9. All SDD documents filled
-10. project.yaml updated to status: benchmarked
+- one pure `EchoLogic` serves real REST and gRPC adapters
+- clients assert request ID, payload, and SHA-256 parity
+- three measured repetitions alternate protocol order after warmup
+- common V2 report contains UUID, samples, digests, exact source/image/artifact provenance, and zero failures
+- PowerShell cleanup does not turn Docker stderr into a false benchmark failure
+- CI writes regenerated evidence under `RUNNER_TEMP`
 
-## Key Decisions
+## Invariants For The Next Agent
 
-- modular-monolith: two servers, shared logic
-- No database, no auth, no streaming — minimal surface
-- Proto file committed; generated .pb.go files committed alongside
-- Raw binary file descriptor generated via Python protobuf utility
+1. Do not overwrite `benchmarks/results/benchmark-result.json` in CI.
+2. Do not claim one protocol universally wins.
+3. Keep `internal.EchoLogic` independent from transport and generated types.
+4. Change the comparability key whenever workload or connection semantics change.
+5. Feed reusable harness improvements back to `portfolio-reuse-kit`.
 
-## Next Actions
+## Verification
 
-1. Run `docker build -t grpc-vs-rest-bench .` to verify compilation
-2. Run benchmark: `docker run --rm grpc-vs-rest-bench`
-3. Update README benchmark table with actual numbers
-4. Run checkpoint script before ending session
+```powershell
+pwsh ./tools/validate-project.ps1
+```
 
-## Risks
-
-- Manual .pb.go file may not match protoc-generated output — verify with Docker build
-- Module name uses `github.com/Brilhante29/grpc-vs-rest-bench` — update if forked
+For publication, verify GitHub Actions against the exact pushed head; do not infer success from an older green run.

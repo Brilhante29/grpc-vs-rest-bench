@@ -2,77 +2,39 @@
 
 ## Status
 
-Accepted
+Accepted and measured.
 
-## Context
+## Problem Forces
 
-Project: grpc-vs-rest-bench
-Claim: comparacao REST vs gRPC
-Benchmark: latency_ms_by_protocol
-
-Problem forces:
-
-- Domain complexity: low
-- Integration pressure: low
-- UI state complexity: none
-- Data/ML reproducibility: low
-- Auditability/event history: low
-- Throughput/async pressure: medium
-- Independent deployability need: low
+- low domain complexity: one Echo use case
+- high comparison integrity: both protocols must execute identical logic
+- medium throughput pressure: measurement must avoid framework-heavy noise
+- no persistence, messaging, cloud, UI state, or independent capability deployment
 
 ## Decision
 
-Chosen architecture: modular-monolith
+Use a modular monolith with three binaries (`rest-server`, `grpc-server`, and `bench-client`) and one transport-independent `internal` package.
 
-Reason:
+The application contract is `Echoer`. REST and gRPC are adapters that translate wire data to domain-owned request/response structures. Composition roots under `cmd/` select concrete adapters; dependencies point inward.
 
-The benchmark compares two transport protocols (REST/HTTP vs gRPC) executing identical business logic. A modular monolith with two server binaries sharing the same internal package is the simplest architecture that proves the claim. Splitting into microservices would add orchestration overhead without benchmark benefit.
+## Principles
 
-Dependency rule:
-
-cmd/ depends on internal/ — internal/ never imports cmd/.
+- SRP: each binary owns one process concern; the benchmark package owns measurement/evidence.
+- OCP: another transport can implement the same contract without changing `EchoLogic`.
+- LSP: each client is substitutable under the benchmark `Client` interface and must satisfy semantic parity.
+- ISP: `Echoer` and benchmark `Client` expose one operation only.
+- DIP: transport packages depend on the use-case contract, not the reverse.
+- KISS/DRY/YAGNI: one use case, one implementation, no unrelated infrastructure.
 
 ## Rejected Alternatives
 
-| Alternative | Why rejected |
+| Alternative | Reason |
 |---|---|
-| microservices | Added deploy and orchestration complexity irrelevant to transport comparison |
-| hexagonal/ports-adapters | Overkill for a single Echo RPC; the adapter layer is the cmd/ boundary itself |
-
-## Folder Layout
-
-```
-cmd/
-  grpc-server/      -- gRPC transport adapter
-  rest-server/      -- REST/HTTP transport adapter
-  bench-client/     -- benchmark harness entrypoint
-internal/
-  proto/benchmark/v1/  -- generated protobuf types
-  service.go           -- shared EchoLogic
-  benchmark/
-    suite.go           -- benchmark execution harness
-    report.go          -- JSON result output
-proto/benchmark/v1/    -- proto source definition
-```
-
-## Testing Strategy
-
-- Unit tests: EchoLogic (pure Go), Report serialization
-- Integration tests: gRPC and REST server start + request/response verify
-- Benchmark: bench-client sends N requests to both, outputs JSON
+| microservices | independent deployment would add network and orchestration variables without a second business capability |
+| full clean-architecture rings | extra entity/repository/use-case layers would not protect any additional policy in this single-operation domain |
+| one handler implementation per protocol | duplicate business logic would invalidate semantic and performance comparison |
+| in-process protocol mocks | they would not measure real HTTP/1.1, HTTP/2, JSON, and Protobuf paths |
 
 ## Consequences
 
-Positive:
-
-- Single Docker image with all three entrypoints
-- Shared logic guaranteed identical between transports
-- Simple to understand and reproduce
-
-Tradeoffs:
-
-- Two server processes need coordination in benchmark (solved by starting both in bench-client orchestration)
-
-Migration path:
-
-If the benchmark needs database-backed workloads, extract server binaries into independent services.
+The benchmark isolates transport cost while retaining real sockets and serialization. Results still apply only to this unary, same-host workload. Persistence or streaming would introduce different forces and require a new architecture decision and comparability key.

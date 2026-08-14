@@ -1,66 +1,41 @@
 # Spec: grpc-vs-rest-bench
 
-## Number
+## Identity
 
-#15
+- portfolio number: 15
+- macro project: Backend Reliability and Architecture Platform
+- claim: compare REST and gRPC with the same use case and publish reproducible latency, throughput, and parity evidence
+- stack: Go, chi, gRPC, Protobuf, Docker Compose
 
-## Claim
+## Functional Scope
 
-Este projeto prova que: comparacao REST vs gRPC — qual transporte apresenta menor latencia para cargas de trabalho request/response identicas.
+- expose `echo.v1` through REST/JSON and gRPC/Protobuf
+- keep `EchoLogic` independent from both transports
+- reject a missing request ID consistently
+- verify identical request ID, payload, and SHA-256 semantics
+- warm both protocols and alternate measured order
+- emit the common benchmark-result V2 artifact
 
-## Stack
+## Out of Scope
 
-go, grpc, chi, protobuf, docker
+- streaming, TLS, authentication, persistence, service mesh, browser UI, and cross-region transport
+- a universal REST-versus-gRPC recommendation
+- paid credentials or managed cloud dependencies
 
-## User-visible output
+## Public Evidence
 
-- Docker command: `docker run --rm grpc-vs-rest-bench`
-- README opens with: `# #15 grpc-vs-rest-bench`
-- Benchmark table: latency_ms_by_protocol (mean, p50, p95, p99, throughput)
+- primary metric: `rest_over_grpc_p95_ratio`
+- baseline: `0.800381`
+- secondary evidence: REST/gRPC p50, p95, p99, throughput, and zero failures
+- command: `pwsh ./tools/run-benchmark.ps1`
+- artifact: `benchmarks/results/benchmark-result.json`
 
-## Scope
+## Definition of Done
 
-In:
-
-- Implementar o menor produto funcional que prove o claim.
-- Rodar por Docker.
-- Gerar benchmark JSON reproduzivel.
-- Dois servidores (REST + gRPC) compartilhando a mesma logica de Echo.
-- Cliente de benchmark que envia N requisicoes para cada protocolo e compara latencia.
-
-Out:
-
-- Publicar repo antes do primeiro resultado numerico.
-- Depender de segredo pago para o caminho default.
-- Autenticacao, banco de dados, streaming.
-
-## Architecture
-
-```
-client -> app (cmd/) -> domain (internal/) -> benchmark output
-```
-
-## Benchmark
-
-Primary metric:
-
-- name: latency_ms_by_protocol
-- target: first reproducible baseline
-- command: `docker run --rm grpc-vs-rest-bench -n 1000 -payload 256 -c 10`
-- result file: benchmarks/results/*.json
-
-## Dataset or fixture
-
-- source: synthetic payload generated at runtime
-- size: configurable via -payload flag (default 256 bytes)
-- license: MIT
-- deterministic seed: 42
-
-## Definition of done
-
-- [x] Docker command works from clean clone.
-- [x] README starts with project number and benchmark result.
-- [x] Benchmark command writes JSON result.
-- [x] Tests cover core behavior.
-- [x] REFERENCES.md explains reuse.
-- [x] No secret or paid credential required for default demo.
+- [x] Both real transports implement one shared domain contract.
+- [x] Unit, integration, race, vet, and build checks exist.
+- [x] Docker runs without paid credentials.
+- [x] Three-repetition V2 evidence contains exact provenance.
+- [x] README opens with the measured number and limitations.
+- [x] CI smoke evidence cannot overwrite the canonical result.
+- [x] Reuse findings are recorded in the kit loop.

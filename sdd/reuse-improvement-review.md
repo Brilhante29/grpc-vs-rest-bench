@@ -12,8 +12,9 @@
 
 | Finding | Decision | Patch |
 |---|---|---|
-| Go multi-stage Dockerfile pattern repeated across projects | patch_now | Added to portfolio-reuse-kit/templates/Dockerfile.go-multistage |
-| Proto descriptor generation via Python utility script | backlog | Could be generalized to tools/gen-descriptor.py template |
+| CI benchmark smoke could overwrite a stable publication artifact | patch_now | Kit skills and this workflow now require a runner-temporary smoke path |
+| Custom reports can call themselves V2 while violating the shared schema | patch_now | Replaced the custom envelope with the shared V2 contract and strict semantic validation |
+| Protocol comparison needs paired ratio metrics and parity failures | patch_now | Added paired p95/throughput ratios and a zero-failure publication gate |
 
 ## Final Gate
 

@@ -43,6 +43,9 @@ func TestRunPairProducesThreeComparableRepetitions(t *testing.T) {
 	if report.SchemaVersion != 2 || len(report.Metrics) != 11 {
 		t.Fatalf("expected common V2 report with 11 metrics, got schema %d and %d metrics", report.SchemaVersion, len(report.Metrics))
 	}
+	if report.Workload.MeasuredIterations != cfg.Requests || report.Execution.Repeat != cfg.Repetitions {
+		t.Fatalf("workload size and independent repetitions were conflated: workload=%d repeat=%d", report.Workload.MeasuredIterations, report.Execution.Repeat)
+	}
 	if issues := Validate(report, false); len(issues) > 0 {
 		t.Fatalf("unexpected validation issues: %v", issues)
 	}

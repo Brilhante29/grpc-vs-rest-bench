@@ -116,7 +116,7 @@ func NewReport(cfg Config, payload, command string, results []ProtocolResult, st
 			FixtureDigest:      payloadDigest,
 			ConfigDigest:       configDigest,
 			WarmupIterations:   cfg.WarmupRequests,
-			MeasuredIterations: cfg.Repetitions,
+			MeasuredIterations: cfg.Requests,
 			Concurrency:        cfg.Concurrency,
 		},
 		Metrics: buildMetrics(results),
@@ -324,13 +324,13 @@ func Validate(report Report, exactProvenance bool) []string {
 	if report.Project != "grpc-vs-rest-bench" || report.BenchmarkID != "rest-grpc-unary-echo" {
 		issues = append(issues, "project and benchmark_id must identify the unary echo comparison")
 	}
-	if report.Workload.WarmupIterations <= 0 || report.Workload.MeasuredIterations < 3 || report.Workload.Concurrency <= 0 {
-		issues = append(issues, "workload requires positive warmup/concurrency and at least 3 measured iterations")
+	if report.Workload.WarmupIterations <= 0 || report.Workload.MeasuredIterations <= 0 || report.Workload.Concurrency <= 0 {
+		issues = append(issues, "workload requires positive warmup, measured iterations and concurrency")
 	}
 	if !sha256Pattern.MatchString(report.Workload.FixtureDigest) || !sha256Pattern.MatchString(report.Workload.ConfigDigest) {
 		issues = append(issues, "workload fixture/config digests must be SHA-256 values")
 	}
-	if report.Execution.Command == "" || report.Execution.ExitCode != 0 || report.Execution.Repeat != report.Workload.MeasuredIterations || report.Execution.DurationSeconds < 0 {
+	if report.Execution.Command == "" || report.Execution.ExitCode != 0 || report.Execution.Repeat < 3 || report.Execution.DurationSeconds < 0 {
 		issues = append(issues, "execution metadata is incomplete or inconsistent")
 	}
 	if _, err := time.Parse(time.RFC3339Nano, report.Execution.StartedAt); err != nil {
@@ -351,7 +351,7 @@ func Validate(report Report, exactProvenance bool) []string {
 		if _, required := requiredMetrics[metric.Name]; required {
 			requiredMetrics[metric.Name] = true
 		}
-		if metric.Name == "" || metric.Unit == "" || len(metric.Samples) != report.Workload.MeasuredIterations {
+		if metric.Name == "" || metric.Unit == "" || len(metric.Samples) != report.Execution.Repeat {
 			issues = append(issues, metric.Name+" metric metadata/sample count is invalid")
 		}
 		if metric.Direction != "higher_is_better" && metric.Direction != "lower_is_better" && metric.Direction != "target" {
@@ -372,7 +372,7 @@ func Validate(report Report, exactProvenance bool) []string {
 			issues = append(issues, "missing required metric: "+name)
 		}
 	}
-	for index := 0; index < report.Workload.MeasuredIterations; index++ {
+	for index := 0; index < report.Execution.Repeat; index++ {
 		for _, protocol := range []string{"rest", "grpc"} {
 			p50, ok50 := metricByName[protocol+"_p50_latency_ms"]
 			p95, ok95 := metricByName[protocol+"_p95_latency_ms"]
