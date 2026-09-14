@@ -6,7 +6,8 @@ Accepted and measured.
 
 ## Selected Stack
 
-- Go 1.26 for low-overhead servers, clients, and one static runtime image
+- Go 1.26.8 for low-overhead servers, clients, and one static runtime image
+- Security refresh and historical benchmark scope: [2026-09-14 decision](security-refresh-2026-09-14.md).
 - chi for minimal REST routing on standard `net/http`
 - official gRPC-Go and Protobuf implementations
 - Docker Compose for real multi-process orchestration

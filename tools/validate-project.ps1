@@ -126,7 +126,7 @@ try {
     Invoke-Checked "Go vet" { go vet ./... }
     Invoke-Checked "Go build" { go build ./... }
   } elseif (-not $SkipDocker) {
-    Invoke-Checked "containerized Go validation" { docker run --rm -v "${root}:/src" -w /src golang:1.26.5-alpine3.24 sh /src/tools/validate-go-container.sh }
+    Invoke-Checked "containerized Go validation" { docker run --rm -v "${root}:/src" -w /src golang:1.26.8-alpine3.24 sh /src/tools/validate-go-container.sh }
   } else {
     Add-Failure "Go toolchain is unavailable and Docker validation was skipped"
   }

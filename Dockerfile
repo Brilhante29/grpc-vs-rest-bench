@@ -1,4 +1,4 @@
-FROM golang:1.26.5-alpine3.24 AS build
+FROM golang:1.26.8-alpine3.24 AS build
 
 ARG SOURCE_COMMIT=unknown
 ARG IMAGE_REF=grpc-vs-rest-bench:local
@@ -29,7 +29,7 @@ ARG IMAGE_REF=grpc-vs-rest-bench:local
 LABEL org.opencontainers.image.revision=$SOURCE_COMMIT \
       org.opencontainers.image.title="grpc-vs-rest-bench" \
       org.opencontainers.image.ref.name=$IMAGE_REF
-RUN apk add --no-cache ca-certificates bash
+RUN apk upgrade --no-cache && apk add --no-cache ca-certificates bash
 WORKDIR /app
 COPY --from=build /build/ /usr/local/bin/
 COPY entrypoint.sh /app/entrypoint.sh

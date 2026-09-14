@@ -2,6 +2,8 @@
 
 **Measured result:** REST median p95 was `3.239 ms` and gRPC median p95 was `3.796 ms` for the same 256-byte unary Echo contract. Median throughput was `7,752.31 req/s` for REST and `6,036.66 req/s` for gRPC, with zero request or semantic-parity failures.
 
+**Historical primary metric:** median paired REST/gRPC p95 ratio (`rest_over_grpc_p95_ratio`) was **0.7398**. These results describe the recorded benchmark runtime, before the security refresh.
+
 **Claim:** protocol choice must follow the workload. This repository compares REST/HTTP 1.1 + JSON and gRPC/HTTP 2 + Protobuf behind one transport-independent Go use case.
 
 **Stack:** Go 1.26, chi, gRPC, Protobuf, Docker Compose, PowerShell benchmark harness.
