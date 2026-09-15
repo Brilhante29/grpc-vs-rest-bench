@@ -1,0 +1,17 @@
+{
+  "disposition": "documented",
+  "fixable": 48,
+  "fixable_packages": {
+    "golang.org/x/net": 15,
+    "golang.org/x/text": 3,
+    "google.golang.org/grpc": 6,
+    "stdlib": 24
+  },
+  "generated_at": "2026-08-21T14:15:36.815337Z",
+  "high_critical_total": 48,
+  "image": "grpc-vs-rest-bench:sec",
+  "no_upstream_fix": 0,
+  "rationale": "Base images are pinned by digest so benchmark provenance stays comparable. Rebuilding does not clear these advisories: the current upstream digest carries the same set. Applying apt-get upgrade would make the image non-deterministic and change image_digest between builds of the same commit, breaking the V2 comparability contract.",
+  "repository": "grpc-vs-rest-bench",
+  "sbom_packages": 53
+}
