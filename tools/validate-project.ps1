@@ -52,8 +52,8 @@ foreach ($file in $requiredFiles) { Require-File $file }
 $readmePath = Join-Path $root "README.md"
 if (Test-Path -LiteralPath $readmePath -PathType Leaf) {
   $readme = Get-Content -Raw -LiteralPath $readmePath
-  if ($readme -notmatch '^# #15 grpc-vs-rest-bench') {
-    Add-Failure "README must open with project number and name"
+  if ($readme -notmatch '^# gRPC vs REST') {
+    Add-Failure "README must open with the project title"
   }
   foreach ($evidence in @("3.239 ms", "3.796 ms", "7,752.31 req/s", "6,036.66 req/s", "rest_over_grpc_p95_ratio")) {
     if ($readme -notmatch [regex]::Escape($evidence)) {
