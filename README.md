@@ -1,14 +1,20 @@
-# #15 grpc-vs-rest-bench
+# gRPC vs REST in Go: One Use Case, Two Transports, Measured
 
-**Measured result:** REST median p95 was `3.239 ms` and gRPC median p95 was `3.796 ms` for the same 256-byte unary Echo contract. Median throughput was `7,752.31 req/s` for REST and `6,036.66 req/s` for gRPC, with zero request or semantic-parity failures.
+**REST median p95 was `3.239 ms` and gRPC median p95 was `3.796 ms`** for the same 256-byte unary Echo contract, with median throughput of `7,752.31 req/s` for REST and `6,036.66 req/s` for gRPC and zero request or semantic-parity failures. Paired median `rest_over_grpc_p95_ratio`: **0.7398**, recorded before the latest security refresh.
 
-**Historical primary metric:** median paired REST/gRPC p95 ratio (`rest_over_grpc_p95_ratio`) was **0.7398**. These results describe the recorded benchmark runtime, before the security refresh.
+[![CI](https://github.com/Brilhante29/grpc-vs-rest-bench/actions/workflows/ci.yml/badge.svg)](https://github.com/Brilhante29/grpc-vs-rest-bench/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white) ![gRPC](https://img.shields.io/badge/gRPC-244c5a?logo=grpc&logoColor=white)
 
-**Claim:** protocol choice must follow the workload. This repository compares REST/HTTP 1.1 + JSON and gRPC/HTTP 2 + Protobuf behind one transport-independent Go use case.
+## Why this exists
+
+"gRPC is faster" is repeated so often that teams adopt it for latency reasons alone, then pay for code generation, HTTP/2 infrastructure, and harder debugging without measuring the gain. Protocol choice should follow the workload. This repository puts REST/HTTP 1.1 + JSON and gRPC/HTTP 2 + Protobuf behind **one transport-independent Go use case** and measures both under identical conditions: same payload, same concurrency, alternating order, three repetitions, and parity checks that prove both transports return the same answers.
+
+For this small unary payload on one host, REST won on p95 and throughput. That is a finding about this workload, not a universal ranking, which is exactly the point.
 
 **Stack:** Go 1.26, chi, gRPC, Protobuf, Docker Compose, PowerShell benchmark harness.
 
-## Run
+## Quickstart
 
 ```bash
 docker build -t grpc-vs-rest-bench .
@@ -71,4 +77,24 @@ Choose REST when browser/tool interoperability, cache semantics, and operational
 pwsh ./tools/validate-project.ps1
 ```
 
-The gate checks tests, vet, build, the committed common V2 artifact, Docker build/Compose configuration, SDD completeness, and forbidden legacy content. Sources and reuse attribution are in `REFERENCES.md`.
+The gate checks tests, vet, build, the committed common V2 artifact, Docker build and Compose configuration, SDD completeness, and forbidden legacy content.
+
+## How this repository is built
+
+The project follows the spec-driven workflow of [portfolio-reuse-kit](https://github.com/Brilhante29/portfolio-reuse-kit). Requirements and decisions live in [`sdd/`](sdd) and [`openspec/`](openspec), and [`project.yaml`](project.yaml) records the architecture, stack, and rejected alternatives. Development is AI-assisted and human-governed: [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md) hold the coding-agent instructions, while tests, validators, and CI decide what gets published.
+
+## Related work
+
+- [load-test-suite](https://github.com/Brilhante29/load-test-suite): reusable k6 latency curves for HTTP services.
+- [api-gateway-lite](https://github.com/Brilhante29/api-gateway-lite): what an extra HTTP hop costs at the edge.
+
+See [`REFERENCES.md`](REFERENCES.md) for sources and reuse attribution.
+
+## Author
+
+**Guilherme Brilhante**, software engineer working on scalable backends and production AI.
+[LinkedIn](https://www.linkedin.com/in/guilhermefreirebrilhanteseveriano/) · [GitHub](https://github.com/Brilhante29) · [Publications](https://dblp.org/pid/353/6812.html)
+
+## License
+
+[MIT](LICENSE).
